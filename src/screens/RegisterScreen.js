@@ -52,6 +52,7 @@ export default function RegisterScreen() {
   const handleRegister = () => {
     if (!validate()) return;
     const user = {
+      id: String(Date.now()),
       firstName: form.firstName.trim(),
       lastName: form.lastName.trim(),
       name: `${form.firstName.trim()} ${form.lastName.trim()}`,

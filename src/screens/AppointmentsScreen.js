@@ -45,6 +45,7 @@ export default function AppointmentsScreen() {
             <View style={styles.cardText}>
               <Text style={styles.service}>{item.service}</Text>
               <Text style={styles.date}>{item.date} at {item.time}</Text>
+              <Text style={styles.status}>{item.status || 'Confirmed'}</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color={colors.placeholder} />
           </TouchableOpacity>
@@ -103,6 +104,7 @@ const styles = StyleSheet.create({
   cardText: { flex: 1, marginLeft: spacing.md },
   service: { ...typography.h2, fontSize: 16 },
   date: { ...typography.caption, marginTop: spacing.xs },
+  status: { ...typography.caption, color: colors.primaryDark, fontWeight: '600', marginTop: spacing.xs },
   emptyState: { alignItems: 'center', paddingVertical: spacing.xxl },
   emptyTitle: { ...typography.h2, marginTop: spacing.md },
   emptyText: { ...typography.body, color: colors.textMuted, textAlign: 'center', marginTop: spacing.sm },

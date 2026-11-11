@@ -1,6 +1,7 @@
 export let registeredUsers = [
-  { name: 'Admin User', email: 'admin@demo.com', password: 'admin123' },
-  { name: 'Manager User', email: 'manager@demo.com', password: 'manager123' },
+  { id: 'admin', name: 'Admin User', email: 'admin@demo.com', password: 'admin123' },
+  { id: 'manager', name: 'Manager User', email: 'manager@demo.com', password: 'manager123' },
+  { id: 'doctor', name: 'Dr. Demo', firstName: 'Dr. Demo', email: 'doctor@demo.com', password: 'doctor123', role: 'doctor' },
 ];
 
 let currentUser = null;

@@ -37,9 +37,10 @@ export default function AppointmentDetailsScreen() {
           <Ionicons name="calendar" size={34} color={colors.white} />
         </View>
         <Text style={styles.title}>{service?.name || appointment.service}</Text>
-        <Text style={styles.status}>Confirmed</Text>
+        <Text style={styles.status}>{appointment.status || 'Confirmed'}</Text>
 
         <View style={styles.detailsCard}>
+          <DetailRow icon="person-outline" label="Patient" value={appointment.patientName || 'Patient'} />
           {service ? <DetailRow icon="time-outline" label="Estimated duration" value={service.duration} /> : null}
           <DetailRow icon="calendar-outline" label="Date" value={appointment.date} />
           <DetailRow icon="time-outline" label="Time" value={appointment.time} />

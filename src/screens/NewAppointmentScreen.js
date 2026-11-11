@@ -8,6 +8,7 @@ import InputField from '../components/InputField';
 import { useAppointments } from '../context/AppointmentContext';
 import { dentalServices } from '../data/dentalServices';
 import { colors, spacing, typography } from '../theme/theme';
+import { getCurrentUser } from '../components/authData';
 
 export default function NewAppointmentScreen() {
   const router = useRouter();
@@ -50,6 +51,8 @@ export default function NewAppointmentScreen() {
     const appointment = addAppointment({
       serviceId: selectedService.id,
       service: selectedService.name,
+      patientId: getCurrentUser()?.id,
+      patientName: getCurrentUser()?.name || 'Patient',
       date: date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
       time,
       notes: notes.trim(),

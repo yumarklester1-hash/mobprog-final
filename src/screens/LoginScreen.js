@@ -46,7 +46,7 @@ export default function LoginScreen() {
     setLoading(true);
     setTimeout(() => {
       setLoading(false);
-      router.replace('/home');
+      router.replace(user.role === 'doctor' ? '/doctor' : '/home');
     }, 1200);
   };
 
