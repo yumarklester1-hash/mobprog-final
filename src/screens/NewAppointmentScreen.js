@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -13,26 +13,72 @@ export default function NewAppointmentScreen() {
   const router = useRouter();
   const { addAppointment } = useAppointments();
   const [serviceId, setServiceId] = useState('');
-  const [date, setDate] = useState('');
+  const [date, setDate] = useState(null);
   const [time, setTime] = useState('');
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
+  const [picker, setPicker] = useState('');
+  const [displayMonth, setDisplayMonth] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const daysInMonth = new Date(displayMonth.getFullYear(), displayMonth.getMonth() + 1, 0).getDate();
+  const firstWeekday = new Date(displayMonth.getFullYear(), displayMonth.getMonth(), 1).getDay();
+  const calendarCells = [
+    ...Array(firstWeekday).fill(null),
+    ...Array.from({ length: daysInMonth }, (_, index) => index + 1),
+  ];
+  const timeSlots = Array.from({ length: 17 }, (_, index) => {
+    const totalMinutes = 9 * 60 + index * 30;
+    const hour = Math.floor(totalMinutes / 60);
+    const minute = totalMinutes % 60;
+    const period = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour % 12 || 12;
+    return `${displayHour}:${String(minute).padStart(2, '0')} ${period}`;
+  });
 
   const handleSubmit = () => {
     const selectedService = dentalServices.find((item) => item.id === serviceId);
-    if (!selectedService || !date.trim() || !time.trim()) {
-      setError('Choose a service and enter a date and time.');
+    if (!selectedService || !date || !time) {
+      setError('Choose a service, date, and time to continue.');
       return;
     }
 
     const appointment = addAppointment({
       serviceId: selectedService.id,
       service: selectedService.name,
-      date: date.trim(),
-      time: time.trim(),
+      date: date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+      time,
       notes: notes.trim(),
     });
     router.replace(`/appointment/${appointment.id}`);
+  };
+
+  const openDatePicker = () => {
+    if (date) setDisplayMonth(new Date(date.getFullYear(), date.getMonth(), 1));
+    setPicker('date');
+  };
+
+  const isSelectedDay = (day) =>
+    Boolean(
+      date &&
+      date.getFullYear() === displayMonth.getFullYear() &&
+      date.getMonth() === displayMonth.getMonth() &&
+      date.getDate() === day,
+    );
+
+  const isPastSlot = (slot) => {
+    if (!date) return false;
+    const [clock, period] = slot.split(' ');
+    const [hourText, minuteText] = clock.split(':');
+    let hour = Number(hourText) % 12;
+    if (period === 'PM') hour += 12;
+    const slotDate = new Date(date);
+    slotDate.setHours(hour, Number(minuteText), 0, 0);
+    return slotDate <= new Date();
   };
 
   return (
@@ -66,20 +112,28 @@ export default function NewAppointmentScreen() {
           ))}
         </View>
 
-        <InputField
-          label="Date"
-          icon="calendar-outline"
-          placeholder="e.g. October 12, 2026"
-          value={date}
-          onChangeText={setDate}
-        />
-        <InputField
-          label="Time"
-          icon="time-outline"
-          placeholder="e.g. 10:30 AM"
-          value={time}
-          onChangeText={setTime}
-        />
+        <Text style={styles.label}>Date</Text>
+        <TouchableOpacity style={styles.pickerButton} onPress={openDatePicker} accessibilityRole="button">
+          <Ionicons name="calendar-outline" size={20} color={colors.primary} />
+          <Text style={[styles.pickerText, !date && styles.pickerPlaceholder]}>
+            {date ? date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'Choose a date'}
+          </Text>
+          <Ionicons name="chevron-down" size={18} color={colors.placeholder} />
+        </TouchableOpacity>
+
+        <Text style={[styles.label, styles.timeLabel]}>Time</Text>
+        <TouchableOpacity
+          style={[styles.pickerButton, !date && styles.pickerDisabled]}
+          onPress={() => date && setPicker('time')}
+          disabled={!date}
+          accessibilityRole="button"
+        >
+          <Ionicons name="time-outline" size={20} color={colors.primary} />
+          <Text style={[styles.pickerText, !time && styles.pickerPlaceholder]}>
+            {time || (date ? 'Choose a time' : 'Choose a date first')}
+          </Text>
+          <Ionicons name="chevron-down" size={18} color={colors.placeholder} />
+        </TouchableOpacity>
         <InputField
           label="Notes (optional)"
           icon="chatbox-ellipses-outline"
@@ -90,6 +144,106 @@ export default function NewAppointmentScreen() {
         {error ? <Text style={styles.error}>{error}</Text> : null}
         <AppButton title="Confirm appointment" onPress={handleSubmit} style={styles.button} />
       </ScrollView>
+
+      <Modal visible={picker !== ''} transparent animationType="fade" onRequestClose={() => setPicker('')}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{picker === 'date' ? 'Choose a date' : 'Choose a time'}</Text>
+              <TouchableOpacity onPress={() => setPicker('')} accessibilityRole="button" accessibilityLabel="Close picker">
+                <Ionicons name="close" size={24} color={colors.secondary} />
+              </TouchableOpacity>
+            </View>
+            {picker === 'date' ? (
+              <>
+                <View style={styles.monthHeader}>
+                  <TouchableOpacity
+                    onPress={() => setDisplayMonth(new Date(displayMonth.getFullYear(), displayMonth.getMonth() - 1, 1))}
+                    disabled={displayMonth.getFullYear() === today.getFullYear() && displayMonth.getMonth() === today.getMonth()}
+                    accessibilityRole="button"
+                    accessibilityLabel="Previous month"
+                  >
+                    <Ionicons name="chevron-back" size={22} color={colors.primary} />
+                  </TouchableOpacity>
+                  <Text style={styles.monthText}>{displayMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</Text>
+                  <TouchableOpacity
+                    onPress={() => setDisplayMonth(new Date(displayMonth.getFullYear(), displayMonth.getMonth() + 1, 1))}
+                    accessibilityRole="button"
+                    accessibilityLabel="Next month"
+                  >
+                    <Ionicons name="chevron-forward" size={22} color={colors.primary} />
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.calendarGrid}>
+                  {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+                    <Text key={day} style={styles.weekday}>{day}</Text>
+                  ))}
+                  {calendarCells.map((day, index) => {
+                    if (!day) return <View key={`empty-${index}`} style={styles.dayCell} />;
+                    const cellDate = new Date(displayMonth.getFullYear(), displayMonth.getMonth(), day);
+                    cellDate.setHours(0, 0, 0, 0);
+                    const disabled = cellDate < today;
+                    return (
+                      <TouchableOpacity
+                        key={day}
+                        style={[styles.dayCell, isSelectedDay(day) && styles.selectedDay]}
+                        disabled={disabled}
+                        onPress={() => {
+                          const chosen = new Date(displayMonth.getFullYear(), displayMonth.getMonth(), day, 12);
+                          setDate(chosen);
+                          setTime('');
+                          setError('');
+                          setPicker('');
+                        }}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: isSelectedDay(day), disabled }}
+                      >
+                        <Text style={[styles.dayText, disabled && styles.disabledDay, isSelectedDay(day) && styles.selectedDayText]}>
+                          {day}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </>
+            ) : (
+              timeSlots.every(isPastSlot) ? (
+                <View style={styles.noTimes}>
+                  <Text style={styles.noTimesText}>No appointment times remain for this date.</Text>
+                  <TouchableOpacity
+                    onPress={() => setPicker('date')}
+                    accessibilityRole="button"
+                  >
+                    <Text style={styles.chooseAnotherDate}>Choose another date</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <ScrollView contentContainerStyle={styles.timeGrid}>
+                  {timeSlots.map((slot) => {
+                    const disabled = isPastSlot(slot);
+                    return (
+                      <TouchableOpacity
+                        key={slot}
+                        style={[styles.timeOption, time === slot && styles.timeSelected, disabled && styles.timeDisabled]}
+                        disabled={disabled}
+                        onPress={() => {
+                          setTime(slot);
+                          setError('');
+                          setPicker('');
+                        }}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: time === slot, disabled }}
+                      >
+                        <Text style={[styles.timeText, time === slot && styles.timeSelectedText]}>{slot}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              )
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -108,6 +262,33 @@ const styles = StyleSheet.create({
   serviceText: { ...typography.caption, color: colors.text },
   serviceTextSelected: { color: colors.primaryDark, fontWeight: '700' },
   serviceDuration: { ...typography.caption, color: colors.textMuted, fontSize: 11, marginTop: 2 },
+  pickerButton: { height: 52, borderWidth: 1.5, borderColor: colors.border, borderRadius: 12, backgroundColor: colors.surface, paddingHorizontal: spacing.md, flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md },
+  pickerText: { flex: 1, color: colors.text, fontSize: 15, marginLeft: spacing.sm },
+  pickerPlaceholder: { color: colors.placeholder },
+  pickerDisabled: { opacity: 0.6 },
+  timeLabel: { marginTop: spacing.xs },
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'center', padding: spacing.lg },
+  modalCard: { backgroundColor: colors.white, borderRadius: 16, padding: spacing.md, maxHeight: '85%' },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md },
+  modalTitle: { ...typography.h2 },
+  monthHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md, paddingHorizontal: spacing.xs },
+  monthText: { ...typography.body, fontWeight: '700', color: colors.secondary },
+  calendarGrid: { flexDirection: 'row', flexWrap: 'wrap' },
+  weekday: { width: '14.2857%', textAlign: 'center', color: colors.textMuted, fontSize: 12, fontWeight: '600', paddingVertical: spacing.sm },
+  dayCell: { width: '14.2857%', height: 42, alignItems: 'center', justifyContent: 'center', borderRadius: 21 },
+  dayText: { ...typography.body, fontSize: 14 },
+  disabledDay: { color: colors.border },
+  selectedDay: { backgroundColor: colors.primary },
+  selectedDayText: { color: colors.white, fontWeight: '700' },
+  timeGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', paddingBottom: spacing.xs },
+  noTimes: { alignItems: 'center', paddingVertical: spacing.lg },
+  noTimesText: { ...typography.body, color: colors.textMuted, textAlign: 'center', marginBottom: spacing.md },
+  chooseAnotherDate: { ...typography.body, color: colors.primary, fontWeight: '700' },
+  timeOption: { width: '48%', borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingVertical: spacing.sm, alignItems: 'center', marginBottom: spacing.sm },
+  timeSelected: { backgroundColor: colors.primaryLight, borderColor: colors.primary },
+  timeDisabled: { opacity: 0.35 },
+  timeText: { ...typography.caption, color: colors.text },
+  timeSelectedText: { color: colors.primaryDark, fontWeight: '700' },
   error: { color: colors.danger, fontSize: 13, marginBottom: spacing.sm },
   button: { marginTop: spacing.sm },
 });

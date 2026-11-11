@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import AppButton from '../components/AppButton';
 import { useAppointments } from '../context/AppointmentContext';
+import { dentalServices } from '../data/dentalServices';
 import { colors, radius, spacing, typography } from '../theme/theme';
 
 export default function AppointmentsScreen() {
@@ -25,6 +26,11 @@ export default function AppointmentsScreen() {
             </TouchableOpacity>
             <Text style={styles.title}>My appointments</Text>
             <Text style={styles.subtitle}>Tap an appointment to see its details.</Text>
+            <AppButton
+              title="Book an appointment"
+              onPress={() => router.push('/appointment-new')}
+              style={styles.headerButton}
+            />
           </View>
         }
         renderItem={({ item }) => (
@@ -51,7 +57,31 @@ export default function AppointmentsScreen() {
           </View>
         }
         ListFooterComponent={
-          <AppButton title="Make an appointment" onPress={() => router.push('/appointment-new')} style={styles.button} />
+          <View>
+            <View style={styles.servicesHeader}>
+              <Text style={styles.sectionTitle}>Explore dental services</Text>
+              <Text style={styles.sectionSubtitle}>Find the right care for your smile.</Text>
+            </View>
+            {dentalServices.map((service) => (
+              <TouchableOpacity
+                key={service.id}
+                style={styles.serviceCard}
+                onPress={() => router.push(`/service/${service.id}`)}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel={`View ${service.name} details`}
+              >
+                <View style={styles.serviceIcon}>
+                  <Ionicons name={service.icon} size={22} color={colors.primary} />
+                </View>
+                <View style={styles.serviceText}>
+                  <Text style={styles.serviceName}>{service.name}</Text>
+                  <Text style={styles.serviceDuration}>{service.duration}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={colors.placeholder} />
+              </TouchableOpacity>
+            ))}
+          </View>
         }
       />
     </SafeAreaView>
@@ -67,6 +97,7 @@ const styles = StyleSheet.create({
   backText: { ...typography.body, color: colors.secondary, marginLeft: spacing.sm },
   title: { ...typography.h1 },
   subtitle: { ...typography.body, color: colors.textMuted, marginTop: spacing.sm },
+  headerButton: { marginTop: spacing.lg },
   card: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.sm },
   iconBox: { width: 44, height: 44, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primaryLight },
   cardText: { flex: 1, marginLeft: spacing.md },
@@ -75,5 +106,12 @@ const styles = StyleSheet.create({
   emptyState: { alignItems: 'center', paddingVertical: spacing.xxl },
   emptyTitle: { ...typography.h2, marginTop: spacing.md },
   emptyText: { ...typography.body, color: colors.textMuted, textAlign: 'center', marginTop: spacing.sm },
-  button: { marginTop: spacing.lg },
+  servicesHeader: { marginTop: spacing.xl, marginBottom: spacing.md },
+  sectionTitle: { ...typography.h2 },
+  sectionSubtitle: { ...typography.caption, marginTop: spacing.xs },
+  serviceCard: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.sm },
+  serviceIcon: { width: 44, height: 44, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primaryLight },
+  serviceText: { flex: 1, marginLeft: spacing.md },
+  serviceName: { ...typography.body, fontWeight: '600' },
+  serviceDuration: { ...typography.caption, marginTop: spacing.xs },
 });

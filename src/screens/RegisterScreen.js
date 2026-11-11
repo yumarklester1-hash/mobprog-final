@@ -15,6 +15,7 @@ import InputField from '../components/InputField';
 import AppButton from '../components/AppButton';
 import { colors, radius, spacing, typography } from '../theme/theme';
 import { useRouter } from 'expo-router';
+import { addUser, setCurrentUser } from '../components/authData';
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -50,6 +51,16 @@ export default function RegisterScreen() {
 
   const handleRegister = () => {
     if (!validate()) return;
+    const user = {
+      firstName: form.firstName.trim(),
+      lastName: form.lastName.trim(),
+      name: `${form.firstName.trim()} ${form.lastName.trim()}`,
+      email: form.email.trim(),
+      phone: form.phone.trim(),
+      password: form.password,
+    };
+    addUser(user);
+    setCurrentUser(user);
     setLoading(true);
     setTimeout(() => {
       setLoading(false);

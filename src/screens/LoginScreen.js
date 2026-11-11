@@ -17,6 +17,7 @@ import AppButton from '../components/AppButton';
 import Divider from '../components/Divider';
 import SocialButton from '../components/SocialButton';
 import { colors, spacing, typography } from '../theme/theme';
+import { authenticateUser } from '../components/authData';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -36,6 +37,12 @@ export default function LoginScreen() {
 
   const handleLogin = () => {
     if (!validate()) return;
+    const user = authenticateUser(email, password);
+    if (!user) {
+      setErrors({ credentials: 'Email or password is incorrect' });
+      return;
+    }
+
     setLoading(true);
     setTimeout(() => {
       setLoading(false);
@@ -78,6 +85,10 @@ export default function LoginScreen() {
             onChangeText={setPassword}
             error={errors.password}
           />
+
+          {errors.credentials ? (
+            <Text style={styles.errorText}>{errors.credentials}</Text>
+          ) : null}
 
           <TouchableOpacity
             style={styles.forgotWrapper}
@@ -127,6 +138,12 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: '600',
     fontSize: 13,
+  },
+  errorText: {
+    color: colors.danger,
+    fontSize: 12,
+    marginTop: -spacing.sm,
+    marginBottom: spacing.md,
   },
   socialRow: {
     flexDirection: 'row',

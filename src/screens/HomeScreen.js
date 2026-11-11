@@ -1,80 +1,80 @@
-import React from 'react';
-import { ScrollView, View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { Image, ScrollView, View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import AppButton from '../components/AppButton';
 import { useAppointments } from '../context/AppointmentContext';
-import { dentalServices } from '../data/dentalServices';
 import { colors, radius, spacing, typography } from '../theme/theme';
+import { clearCurrentUser, getCurrentUser } from '../components/authData';
 
 export default function HomeScreen() {
   const router = useRouter();
   const { appointments } = useAppointments();
+  const user = getCurrentUser();
+  const [profilePhoto, setProfilePhoto] = useState(user?.profilePhoto || null);
+  const firstName = user?.firstName || user?.name?.split(' ')[0];
+
+  useFocusEffect(
+    useCallback(() => {
+      setProfilePhoto(getCurrentUser()?.profilePhoto || null);
+    }, []),
+  );
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.header}>
           <View>
-            <Text style={styles.greeting}>Welcome back</Text>
-            <Text style={styles.title}>Your dental care</Text>
+            <Text style={styles.greeting}>{firstName ? `Welcome back, ${firstName}` : 'Welcome back'}</Text>
+            <Text style={styles.title}>Your care, made simple</Text>
           </View>
-          <Ionicons name="medical-outline" size={34} color={colors.primary} />
+          <TouchableOpacity
+            style={styles.profileButton}
+            onPress={() => router.push('/profile')}
+            accessibilityRole="button"
+            accessibilityLabel="Open profile"
+          >
+            {profilePhoto ? (
+              <Image source={{ uri: profilePhoto }} style={styles.profilePhoto} />
+            ) : (
+              <Ionicons name="person-circle-outline" size={50} color={colors.primary} />
+            )}
+          </TouchableOpacity>
         </View>
-        <Text style={styles.subtitle}>
-          Keep your visits simple and easy to manage.
-        </Text>
-
         <View style={styles.summary}>
-          <Ionicons name="calendar-outline" size={28} color={colors.primary} />
+          <View style={styles.summaryIcon}>
+            <Ionicons name="calendar-outline" size={24} color={colors.primary} />
+          </View>
           <View style={styles.summaryText}>
             <Text style={styles.summaryCount}>{appointments.length}</Text>
-            <Text style={styles.summaryLabel}>upcoming appointment{appointments.length === 1 ? '' : 's'}</Text>
+            <Text style={styles.summaryLabel}>
+              {appointments.length === 1 ? 'appointment booked' : 'appointments booked'}
+            </Text>
           </View>
+          <TouchableOpacity
+            style={styles.summaryLink}
+            onPress={() => router.push('/appointments')}
+            accessibilityRole="button"
+          >
+            <Text style={styles.summaryLinkText}>View</Text>
+            <Ionicons name="chevron-forward" size={16} color={colors.primary} />
+          </TouchableOpacity>
         </View>
 
         <AppButton
-          title="Make an appointment"
+          title="Book an appointment"
           icon={<Ionicons name="add" size={20} color={colors.white} />}
           onPress={() => router.push('/appointment-new')}
           style={styles.button}
         />
         <AppButton
-          title="See my appointments"
-          variant="outline"
-          onPress={() => router.push('/appointments')}
-          style={styles.button}
-        />
-
-        <View style={styles.servicesHeader}>
-          <Text style={styles.sectionTitle}>Explore dental services</Text>
-          <Text style={styles.sectionSubtitle}>Tap a service to learn more.</Text>
-        </View>
-        {dentalServices.map((service) => (
-          <TouchableOpacity
-            key={service.id}
-            style={styles.serviceCard}
-            onPress={() => router.push(`/service/${service.id}`)}
-            activeOpacity={0.8}
-            accessibilityRole="button"
-            accessibilityLabel={`View ${service.name} details`}
-          >
-            <View style={styles.serviceIcon}>
-              <Ionicons name={service.icon} size={22} color={colors.primary} />
-            </View>
-            <View style={styles.serviceText}>
-              <Text style={styles.serviceName}>{service.name}</Text>
-              <Text style={styles.serviceDuration}>{service.duration}</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.placeholder} />
-          </TouchableOpacity>
-        ))}
-
-        <AppButton
           title="Log Out"
           variant="text"
-          onPress={() => router.replace('/login')}
+          onPress={() => {
+            clearCurrentUser();
+            router.replace('/login');
+          }}
           style={styles.logout}
         />
       </ScrollView>
@@ -88,8 +88,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   content: {
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.xl,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
     paddingBottom: spacing.xl,
   },
   header: {
@@ -97,83 +97,69 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  profileButton: {
+    padding: spacing.xs,
+  },
+  profilePhoto: {
+    width: 50,
+    height: 50,
+    borderRadius: radius.pill,
+  },
   greeting: {
     ...typography.caption,
     marginBottom: spacing.xs,
+    color: colors.textMuted,
   },
   title: {
     ...typography.h1,
-  },
-  subtitle: {
-    ...typography.body,
-    color: colors.textMuted,
-    marginTop: spacing.sm,
+    fontSize: 24,
   },
   summary: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.primaryLight,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
     borderRadius: radius.md,
     padding: spacing.md,
     marginTop: spacing.xl,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
+  },
+  summaryIcon: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primaryLight,
+    borderRadius: radius.sm,
   },
   summaryText: {
-    marginLeft: spacing.md,
+    marginLeft: spacing.sm,
+    flex: 1,
   },
   summaryCount: {
     ...typography.h2,
-    color: colors.primaryDark,
   },
   summaryLabel: {
     ...typography.caption,
     marginTop: spacing.xs,
   },
+  summaryLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    paddingLeft: spacing.sm,
+  },
+  summaryLinkText: {
+    ...typography.caption,
+    color: colors.primary,
+    fontWeight: '600',
+  },
   button: {
     width: '100%',
     marginTop: spacing.sm,
   },
-  servicesHeader: {
-    marginTop: spacing.xl,
-    marginBottom: spacing.md,
-  },
-  sectionTitle: {
-    ...typography.h2,
-  },
-  sectionSubtitle: {
-    ...typography.caption,
-    marginTop: spacing.xs,
-  },
-  serviceCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  serviceIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.sm,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primaryLight,
-  },
-  serviceText: {
-    flex: 1,
-    marginLeft: spacing.md,
-  },
-  serviceName: {
-    ...typography.body,
-    fontWeight: '600',
-  },
-  serviceDuration: {
-    ...typography.caption,
-    marginTop: spacing.xs,
-  },
   logout: {
-    marginTop: spacing.md,
+    marginTop: spacing.xl,
   },
 });

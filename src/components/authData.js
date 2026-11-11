@@ -22,6 +22,26 @@ export function getCurrentUser() {
   return currentUser;
 }
 
+export function setCurrentUser(user) {
+  currentUser = user;
+}
+
+export function updateCurrentUser(updates) {
+  if (!currentUser) return null;
+
+  const previousEmail = currentUser.email.toLowerCase();
+  currentUser = { ...currentUser, ...updates };
+  const wasRegistered = registeredUsers.some(
+    (user) => user.email.toLowerCase() === previousEmail,
+  );
+  registeredUsers = wasRegistered
+    ? registeredUsers.map((user) =>
+        user.email.toLowerCase() === previousEmail ? { ...user, ...updates } : user,
+      )
+    : [...registeredUsers, currentUser];
+  return currentUser;
+}
+
 export function clearCurrentUser() {
   currentUser = null;
 }
