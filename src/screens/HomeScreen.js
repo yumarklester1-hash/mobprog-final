@@ -1,25 +1,35 @@
-import React, { useCallback, useState } from 'react';
-import { Image, ScrollView, View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Alert, Image, ScrollView, View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import AppButton from '../components/AppButton';
 import { useAppointments } from '../context/AppointmentContext';
+import { useAuth } from '../context/AuthContext';
 import { colors, radius, spacing, typography } from '../theme/theme';
-import { clearCurrentUser, getCurrentUser } from '../components/authData';
 
 export default function HomeScreen() {
   const router = useRouter();
   const { appointments } = useAppointments();
-  const user = getCurrentUser();
+  const { user, logout } = useAuth();
+  const patientAppointments = appointments.filter((item) => item.patientId === user?.id);
   const [profilePhoto, setProfilePhoto] = useState(user?.profilePhoto || null);
   const firstName = user?.firstName || user?.name?.split(' ')[0];
 
   useFocusEffect(
     useCallback(() => {
-      setProfilePhoto(getCurrentUser()?.profilePhoto || null);
-    }, []),
+      setProfilePhoto(user?.profilePhoto || null);
+    }, [user?.profilePhoto]),
   );
+
+  useEffect(() => {
+    if (!user) router.replace('/login');
+    else if (user.role === 'doctor') router.replace('/doctor');
+  }, [router, user]);
+
+  if (!user || user.role === 'doctor') {
+    return null;
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -47,9 +57,9 @@ export default function HomeScreen() {
             <Ionicons name="calendar-outline" size={24} color={colors.primary} />
           </View>
           <View style={styles.summaryText}>
-            <Text style={styles.summaryCount}>{appointments.length}</Text>
+            <Text style={styles.summaryCount}>{patientAppointments.length}</Text>
             <Text style={styles.summaryLabel}>
-              {appointments.length === 1 ? 'appointment booked' : 'appointments booked'}
+              {patientAppointments.length === 1 ? 'appointment booked' : 'appointments booked'}
             </Text>
           </View>
           <TouchableOpacity
@@ -69,11 +79,21 @@ export default function HomeScreen() {
           style={styles.button}
         />
         <AppButton
+          title="Find a dentist"
+          variant="outline"
+          onPress={() => router.push('/appointments')}
+          style={styles.button}
+        />
+        <AppButton
           title="Log Out"
           variant="text"
-          onPress={() => {
-            clearCurrentUser();
-            router.replace('/login');
+          onPress={async () => {
+            try {
+              await logout();
+              router.replace('/login');
+            } catch (error) {
+              Alert.alert('Unable to log out', error.message || 'Please try again.');
+            }
           }}
           style={styles.logout}
         />

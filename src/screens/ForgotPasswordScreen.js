@@ -1,64 +1,46 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React from 'react';
+import { Text, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-
-import InputField from '../components/InputField';
-import AppButton from '../components/AppButton';
 import { colors, spacing, typography } from '../theme/theme';
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
-  const [email, setEmail] = useState('');
-  const [sent, setSent] = useState(false);
 
   return (
     <SafeAreaView style={styles.container}>
-      <TouchableOpacity style={styles.back} onPress={() => router.back()}>
+      <TouchableOpacity
+        style={styles.back}
+        onPress={() => router.replace('/login')}
+        accessibilityRole="button"
+        accessibilityLabel="Back to sign in"
+      >
         <Ionicons name="arrow-back" size={22} color={colors.secondary} />
       </TouchableOpacity>
 
-      <Text style={styles.title}>Reset Password</Text>
+      <View style={styles.icon}>
+        <Ionicons name="mail-unread-outline" size={30} color={colors.primary} />
+      </View>
+      <Text style={styles.title}>Password reset unavailable</Text>
       <Text style={styles.subtitle}>
-        Enter the email linked to your account and we'll send you a reset link.
+        This local demo does not have an email service to verify your identity or send a reset link.
+        No email has been sent.
       </Text>
-
-      <InputField
-        icon="mail-outline"
-        placeholder="you@example.com"
-        keyboardType="email-address"
-        autoCapitalize="none"
-        value={email}
-        onChangeText={setEmail}
-        style={{ marginTop: spacing.lg }}
-      />
-
-      <AppButton
-        title={sent ? 'Email Sent' : 'Send Reset Link'}
-        onPress={() => setSent(true)}
-        disabled={!email.trim()}
-      />
+      <TouchableOpacity style={styles.action} onPress={() => router.replace('/login')}>
+        <Text style={styles.actionText}>Back to sign in</Text>
+      </TouchableOpacity>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
-    backgroundColor: colors.background,
-  },
-  back: {
-    marginBottom: spacing.lg,
-  },
-  title: {
-    ...typography.h1,
-    marginBottom: spacing.xs,
-  },
-  subtitle: {
-    ...typography.body,
-    color: colors.textMuted,
-  },
+  container: { flex: 1, paddingHorizontal: spacing.lg, paddingTop: spacing.xl, backgroundColor: colors.background },
+  back: { marginBottom: spacing.lg },
+  icon: { width: 58, height: 58, borderRadius: 29, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primaryLight, marginBottom: spacing.lg },
+  title: { ...typography.h1, marginBottom: spacing.xs },
+  subtitle: { ...typography.body, color: colors.textMuted },
+  action: { marginTop: spacing.xl, alignSelf: 'flex-start' },
+  error: { color: colors.danger, marginTop: spacing.sm },
+  actionText: { ...typography.body, color: colors.primary, fontWeight: '700' },
 });

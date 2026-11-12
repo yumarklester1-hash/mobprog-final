@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -6,18 +6,19 @@ import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import AppButton from '../components/AppButton';
 import InputField from '../components/InputField';
-import { getCurrentUser, updateCurrentUser } from '../components/authData';
+import { useAuth } from '../context/AuthContext';
 import { colors, radius, spacing, typography } from '../theme/theme';
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const user = getCurrentUser() || {};
-  const [photoUri, setPhotoUri] = useState(user.profilePhoto || null);
+  const { user, updateUser, uploadProfilePhoto, updatePassword, logout } = useAuth();
+  const currentUser = user || {};
+  const [photoUri, setPhotoUri] = useState(currentUser.profilePhoto || null);
   const [form, setForm] = useState({
-    firstName: user.firstName || user.name?.split(' ')[0] || '',
-    lastName: user.lastName || user.name?.split(' ').slice(1).join(' ') || '',
-    email: user.email || '',
-    phone: user.phone || '',
+    firstName: currentUser.firstName || currentUser.name?.split(' ')[0] || '',
+    lastName: currentUser.lastName || currentUser.name?.split(' ').slice(1).join(' ') || '',
+    email: currentUser.email || '',
+    phone: currentUser.phone || '',
   });
   const [passwords, setPasswords] = useState({
     current: '',
@@ -27,11 +28,15 @@ export default function ProfileScreen() {
   const [errors, setErrors] = useState({});
   const [message, setMessage] = useState('');
 
+  useEffect(() => {
+    if (!user) router.replace('/login');
+  }, [router, user]);
+
   const updateForm = (key) => (value) => {
     setForm((current) => ({ ...current, [key]: value }));
     setMessage('');
   };
-  const updatePassword = (key) => (value) => {
+  const updatePasswordField = (key) => (value) => {
     setPasswords((current) => ({ ...current, [key]: value }));
     setMessage('');
   };
@@ -54,15 +59,15 @@ export default function ProfileScreen() {
       if (result.canceled || !result.assets?.[0]?.uri) return;
 
       const uri = result.assets[0].uri;
-      updateCurrentUser({ profilePhoto: uri });
-      setPhotoUri(uri);
+      const updatedUser = await uploadProfilePhoto(uri);
+      setPhotoUri(updatedUser.profilePhoto);
       setMessage('Profile photo updated.');
     } catch (error) {
       Alert.alert('Unable to select photo', error.message || 'Please try again.');
     }
   };
 
-  const saveProfile = () => {
+  const saveProfile = async () => {
     const nextErrors = {};
     if (!form.firstName.trim()) nextErrors.firstName = 'First name is required';
     if (!form.lastName.trim()) nextErrors.lastName = 'Last name is required';
@@ -72,33 +77,42 @@ export default function ProfileScreen() {
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length) return;
 
-    updateCurrentUser({
-      ...form,
-      firstName: form.firstName.trim(),
-      lastName: form.lastName.trim(),
-      name: `${form.firstName.trim()} ${form.lastName.trim()}`,
-      email: form.email.trim(),
-      phone: form.phone.trim(),
-    });
-    setMessage('Profile updated.');
+    try {
+      await updateUser({
+        ...form,
+        firstName: form.firstName.trim(),
+        lastName: form.lastName.trim(),
+        name: `${form.firstName.trim()} ${form.lastName.trim()}`,
+        email: form.email.trim(),
+        phone: form.phone.trim(),
+      });
+      setMessage('Profile updated.');
+    } catch (error) {
+      setMessage(error.message || 'Unable to save profile.');
+    }
   };
 
-  const savePassword = () => {
+  const savePassword = async () => {
     const nextErrors = {};
-    const currentUser = getCurrentUser();
     if (!passwords.current) nextErrors.current = 'Enter your current password';
-    else if (passwords.current !== currentUser?.password) nextErrors.current = 'Current password is incorrect';
+    else if (passwords.current !== currentUser.password) nextErrors.current = 'Current password is incorrect';
     if (!passwords.next) nextErrors.next = 'Enter a new password';
     else if (passwords.next.length < 6) nextErrors.next = 'Use at least 6 characters';
     if (passwords.confirm !== passwords.next) nextErrors.confirm = 'Passwords do not match';
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length) return;
 
-    updateCurrentUser({ password: passwords.next });
-    setPasswords({ current: '', next: '', confirm: '' });
-    setErrors({});
-    setMessage('Password updated.');
+    try {
+      await updatePassword(passwords.current, passwords.next);
+      setPasswords({ current: '', next: '', confirm: '' });
+      setErrors({});
+      setMessage('Password updated.');
+    } catch (error) {
+      setMessage(error.message || 'Unable to update password.');
+    }
   };
+
+  if (!user) return null;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -128,7 +142,9 @@ export default function ProfileScreen() {
           </TouchableOpacity>
           <View>
             <Text style={styles.title}>My profile</Text>
-            <Text style={styles.subtitle}>Manage your account details.</Text>
+            <Text style={styles.subtitle}>
+              {user?.role === 'doctor' ? 'Doctor account' : 'Patient account'} · Manage your details.
+            </Text>
           </View>
         </View>
 
@@ -143,12 +159,25 @@ export default function ProfileScreen() {
 
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Change password</Text>
-          <InputField label="Current password" icon="lock-closed-outline" isPassword value={passwords.current} onChangeText={updatePassword('current')} error={errors.current} />
-          <InputField label="New password" icon="lock-closed-outline" isPassword value={passwords.next} onChangeText={updatePassword('next')} error={errors.next} />
-          <InputField label="Confirm new password" icon="lock-closed-outline" isPassword value={passwords.confirm} onChangeText={updatePassword('confirm')} error={errors.confirm} />
+          <InputField label="Current password" icon="lock-closed-outline" isPassword value={passwords.current} onChangeText={updatePasswordField('current')} error={errors.current} />
+          <InputField label="New password" icon="lock-closed-outline" isPassword value={passwords.next} onChangeText={updatePasswordField('next')} error={errors.next} />
+          <InputField label="Confirm new password" icon="lock-closed-outline" isPassword value={passwords.confirm} onChangeText={updatePasswordField('confirm')} error={errors.confirm} />
           <AppButton title="Update password" variant="outline" onPress={savePassword} />
         </View>
         {message ? <Text style={styles.message}>{message}</Text> : null}
+        <AppButton
+          title="Log out"
+          variant="outline"
+          onPress={async () => {
+            try {
+              await logout();
+              router.replace('/login');
+            } catch (error) {
+              setMessage(error.message || 'Unable to log out.');
+            }
+          }}
+          style={{ marginTop: spacing.md }}
+        />
       </ScrollView>
     </SafeAreaView>
   );

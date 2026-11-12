@@ -1,28 +1,37 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import AppButton from '../components/AppButton';
 import InputField from '../components/InputField';
+import { useAuth } from '../context/AuthContext';
 import { useAppointments } from '../context/AppointmentContext';
+import { doctors } from '../data/doctors';
 import { dentalServices } from '../data/dentalServices';
 import { colors, spacing, typography } from '../theme/theme';
-import { getCurrentUser } from '../components/authData';
 
 export default function NewAppointmentScreen() {
   const router = useRouter();
-  const { addAppointment } = useAppointments();
+  const { user } = useAuth();
+  const { appointments, addAppointment } = useAppointments();
+  const [doctorId, setDoctorId] = useState('');
   const [serviceId, setServiceId] = useState('');
   const [date, setDate] = useState(null);
   const [time, setTime] = useState('');
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
   const [picker, setPicker] = useState('');
   const [displayMonth, setDisplayMonth] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
+
+  useEffect(() => {
+    if (!user) router.replace('/login');
+    else if (user.role !== 'patient') router.replace('/doctor');
+  }, [router, user?.role]);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -41,23 +50,65 @@ export default function NewAppointmentScreen() {
     return `${displayHour}:${String(minute).padStart(2, '0')} ${period}`;
   });
 
-  const handleSubmit = () => {
+  const isBookedSlot = (slot) => {
+    if (!date || !doctorId) return false;
+    const dateIso = [
+      date.getFullYear(),
+      String(date.getMonth() + 1).padStart(2, '0'),
+      String(date.getDate()).padStart(2, '0'),
+    ].join('-');
+    return appointments.some(
+      (item) =>
+        item.doctorId === doctorId &&
+        item.dateIso === dateIso &&
+        item.time === slot &&
+        ['pending', 'confirmed'].includes(item.status),
+    );
+  };
+
+  const handleSubmit = async () => {
+    if (user?.role !== 'patient') {
+      setError('Only patient accounts can request appointments.');
+      return;
+    }
     const selectedService = dentalServices.find((item) => item.id === serviceId);
-    if (!selectedService || !date || !time) {
-      setError('Choose a service, date, and time to continue.');
+    const selectedDoctor = doctors.find((item) => item.id === doctorId);
+    if (!selectedDoctor || !selectedService || !date || !time) {
+      setError('Choose a dentist, service, date, and time to continue.');
       return;
     }
 
-    const appointment = addAppointment({
-      serviceId: selectedService.id,
-      service: selectedService.name,
-      patientId: getCurrentUser()?.id,
-      patientName: getCurrentUser()?.name || 'Patient',
-      date: date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
-      time,
-      notes: notes.trim(),
-    });
-    router.replace(`/appointment/${appointment.id}`);
+    if (isBookedSlot(time)) {
+      setError('That time was just booked. Please choose another slot.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const appointment = await addAppointment({
+        patientId: user.id,
+        patientName: user.name,
+        patientEmail: user.email,
+        patientPhone: user.phone,
+        doctorId: selectedDoctor.id,
+        doctorName: selectedDoctor.name,
+        serviceId: selectedService.id,
+        service: selectedService.name,
+        date: date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+        dateIso: [
+          date.getFullYear(),
+          String(date.getMonth() + 1).padStart(2, '0'),
+          String(date.getDate()).padStart(2, '0'),
+        ].join('-'),
+        time,
+        notes: notes.trim(),
+      });
+      router.replace(`/appointment/${appointment.id}`);
+    } catch (submitError) {
+      setError(submitError.message || 'Unable to save the appointment. Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const openDatePicker = () => {
@@ -84,6 +135,8 @@ export default function NewAppointmentScreen() {
     return slotDate <= new Date();
   };
 
+  if (user?.role !== 'patient') return null;
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
@@ -92,7 +145,41 @@ export default function NewAppointmentScreen() {
           <Text style={styles.backText}>Back</Text>
         </TouchableOpacity>
         <Text style={styles.title}>Make an appointment</Text>
-        <Text style={styles.subtitle}>Pick a service and a convenient time.</Text>
+        <Text style={styles.subtitle}>Choose a dentist, service, and available time.</Text>
+
+        <Text style={styles.label}>Dentist</Text>
+        {doctors.length ? (
+          <View style={styles.doctorList}>
+            {doctors.map((doctor) => (
+              <TouchableOpacity
+                key={doctor.id}
+                style={[styles.doctorOption, doctorId === doctor.id && styles.doctorSelected]}
+                onPress={() => {
+                  setDoctorId(doctor.id);
+                  setTime('');
+                  setError('');
+                }}
+                accessibilityRole="button"
+                accessibilityState={{ selected: doctorId === doctor.id }}
+              >
+                <View style={styles.doctorIcon}>
+                  <Ionicons name="person-outline" size={20} color={colors.primary} />
+                </View>
+                <View style={styles.doctorInfo}>
+                  <Text style={styles.doctorName}>{doctor.name}</Text>
+                  <Text style={styles.doctorSpecialty}>{doctor.specialty}</Text>
+                </View>
+                {doctorId === doctor.id ? (
+                  <Ionicons name="checkmark-circle" size={21} color={colors.primary} />
+                ) : null}
+              </TouchableOpacity>
+            ))}
+          </View>
+        ) : (
+          <Text style={styles.emptyDoctors}>
+            No dentists are available in this local demo.
+          </Text>
+        )}
 
         <Text style={styles.label}>Service</Text>
         <View style={styles.serviceRow}>
@@ -145,7 +232,7 @@ export default function NewAppointmentScreen() {
           onChangeText={setNotes}
         />
         {error ? <Text style={styles.error}>{error}</Text> : null}
-        <AppButton title="Confirm appointment" onPress={handleSubmit} style={styles.button} />
+        <AppButton title="Request appointment" onPress={handleSubmit} loading={saving} style={styles.button} />
       </ScrollView>
 
       <Modal visible={picker !== ''} transparent animationType="fade" onRequestClose={() => setPicker('')}>
@@ -210,9 +297,9 @@ export default function NewAppointmentScreen() {
                 </View>
               </>
             ) : (
-              timeSlots.every(isPastSlot) ? (
+              timeSlots.every((slot) => isPastSlot(slot) || isBookedSlot(slot)) ? (
                 <View style={styles.noTimes}>
-                  <Text style={styles.noTimesText}>No appointment times remain for this date.</Text>
+                  <Text style={styles.noTimesText}>No available appointment times remain for this date.</Text>
                   <TouchableOpacity
                     onPress={() => setPicker('date')}
                     accessibilityRole="button"
@@ -223,7 +310,8 @@ export default function NewAppointmentScreen() {
               ) : (
                 <ScrollView contentContainerStyle={styles.timeGrid}>
                   {timeSlots.map((slot) => {
-                    const disabled = isPastSlot(slot);
+                    const booked = isBookedSlot(slot);
+                    const disabled = isPastSlot(slot) || booked;
                     return (
                       <TouchableOpacity
                         key={slot}
@@ -237,7 +325,9 @@ export default function NewAppointmentScreen() {
                         accessibilityRole="button"
                         accessibilityState={{ selected: time === slot, disabled }}
                       >
-                        <Text style={[styles.timeText, time === slot && styles.timeSelectedText]}>{slot}</Text>
+                        <Text style={[styles.timeText, time === slot && styles.timeSelectedText]}>
+                          {slot}{booked ? ' · Booked' : ''}
+                        </Text>
                       </TouchableOpacity>
                     );
                   })}
@@ -259,6 +349,14 @@ const styles = StyleSheet.create({
   title: { ...typography.h1 },
   subtitle: { ...typography.body, color: colors.textMuted, marginTop: spacing.sm, marginBottom: spacing.xl },
   label: { ...typography.caption, color: colors.secondary, fontWeight: '600', marginBottom: spacing.sm },
+  doctorList: { gap: spacing.sm, marginBottom: spacing.lg },
+  doctorOption: { flexDirection: 'row', alignItems: 'center', borderWidth: 1.5, borderColor: colors.border, borderRadius: 12, padding: spacing.md },
+  doctorSelected: { borderColor: colors.primary, backgroundColor: colors.primaryLight },
+  doctorIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primaryLight },
+  doctorInfo: { flex: 1, marginLeft: spacing.md },
+  doctorName: { ...typography.body, fontWeight: '700' },
+  doctorSpecialty: { ...typography.caption, marginTop: 2 },
+  emptyDoctors: { ...typography.caption, color: colors.textMuted, marginBottom: spacing.lg },
   serviceRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.lg },
   serviceOption: { borderWidth: 1.5, borderColor: colors.border, borderRadius: 20, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
   serviceSelected: { backgroundColor: colors.primaryLight, borderColor: colors.primary },

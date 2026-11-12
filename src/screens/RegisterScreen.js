@@ -15,10 +15,11 @@ import InputField from '../components/InputField';
 import AppButton from '../components/AppButton';
 import { colors, radius, spacing, typography } from '../theme/theme';
 import { useRouter } from 'expo-router';
-import { addUser, setCurrentUser } from '../components/authData';
+import { useAuth } from '../context/AuthContext';
 
 export default function RegisterScreen() {
   const router = useRouter();
+  const { register } = useAuth();
   const [form, setForm] = useState({
     firstName: '',
     lastName: '',
@@ -49,24 +50,28 @@ export default function RegisterScreen() {
     return Object.keys(next).length === 0;
   };
 
-  const handleRegister = () => {
+  const handleRegister = async () => {
     if (!validate()) return;
-    const user = {
-      id: String(Date.now()),
-      firstName: form.firstName.trim(),
-      lastName: form.lastName.trim(),
-      name: `${form.firstName.trim()} ${form.lastName.trim()}`,
-      email: form.email.trim(),
-      phone: form.phone.trim(),
-      password: form.password,
-    };
-    addUser(user);
-    setCurrentUser(user);
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      const result = await register({
+        firstName: form.firstName.trim(),
+        lastName: form.lastName.trim(),
+        name: `${form.firstName.trim()} ${form.lastName.trim()}`,
+        email: form.email.trim(),
+        phone: form.phone.trim(),
+        password: form.password,
+      });
+      if (result.error) {
+        setErrors({ email: result.error });
+        return;
+      }
       router.replace('/home');
-    }, 1200);
+    } catch (error) {
+      setErrors({ form: error.message || 'Unable to create your account. Please try again.' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -157,6 +162,7 @@ export default function RegisterScreen() {
             </Text>
           </TouchableOpacity>
           {errors.terms ? <Text style={styles.errorText}>{errors.terms}</Text> : null}
+          {errors.form ? <Text style={styles.errorText}>{errors.form}</Text> : null}
 
           <AppButton
             title="Create Account"

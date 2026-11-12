@@ -14,13 +14,12 @@ import { useRouter } from 'expo-router';
 import BrandHeader from '../components/BrandHeader';
 import InputField from '../components/InputField';
 import AppButton from '../components/AppButton';
-import Divider from '../components/Divider';
-import SocialButton from '../components/SocialButton';
 import { colors, spacing, typography } from '../theme/theme';
-import { authenticateUser } from '../components/authData';
+import { useAuth } from '../context/AuthContext';
 
 export default function LoginScreen() {
   const router = useRouter();
+  const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState({});
@@ -35,19 +34,21 @@ export default function LoginScreen() {
     return Object.keys(next).length === 0;
   };
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!validate()) return;
-    const user = authenticateUser(email, password);
-    if (!user) {
-      setErrors({ credentials: 'Email or password is incorrect' });
-      return;
-    }
-
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      const user = await login(email, password);
+      if (!user) {
+        setErrors({ credentials: 'Email or password is incorrect' });
+        return;
+      }
       router.replace(user.role === 'doctor' ? '/doctor' : '/home');
-    }, 1200);
+    } catch (error) {
+      setErrors({ credentials: error.message || 'Unable to sign in. Please try again.' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -99,16 +100,12 @@ export default function LoginScreen() {
 
           <AppButton title="Log In" onPress={handleLogin} loading={loading} />
 
-          <Divider label="OR CONTINUE WITH" />
-
-          <View style={styles.socialRow}>
-            <SocialButton icon="logo-google" onPress={() => {}} />
-            <SocialButton icon="logo-apple" onPress={() => {}} />
-            <SocialButton icon="logo-facebook" onPress={() => {}} />
-          </View>
+          <Text style={styles.doctorNote}>
+            Doctor accounts are managed by the clinic.
+          </Text>
 
           <View style={styles.footerRow}>
-            <Text style={styles.footerText}>Don't have an account? </Text>
+            <Text style={styles.footerText}>Patient? </Text>
             <TouchableOpacity onPress={() => router.push('/register')}>
               <Text style={styles.footerLink}>Sign Up</Text>
             </TouchableOpacity>
@@ -145,11 +142,7 @@ const styles = StyleSheet.create({
     marginTop: -spacing.sm,
     marginBottom: spacing.md,
   },
-  socialRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginBottom: spacing.lg,
-  },
+  doctorNote: { ...typography.caption, color: colors.textMuted, textAlign: 'center', marginTop: spacing.lg },
   footerRow: {
     flexDirection: 'row',
     justifyContent: 'center',
