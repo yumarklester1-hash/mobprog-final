@@ -15,6 +15,12 @@ function parseStoredValue(value, fallback, label) {
   }
 }
 
+function getUserEmails(user) {
+  return [user?.email, ...(user?.emailAliases || [])]
+    .filter(Boolean)
+    .map((email) => email.trim().toLowerCase());
+}
+
 function mergeDoctors(savedUsers) {
   return doctors.map((doctor) => ({
     ...doctor,
@@ -57,7 +63,7 @@ export function AuthProvider({ children }) {
   const login = async (email, password) => {
     const normalizedEmail = email.trim().toLowerCase();
     const matchedUser = users.find(
-      (item) => item.email.toLowerCase() === normalizedEmail && item.password === password,
+      (item) => getUserEmails(item).includes(normalizedEmail) && item.password === password,
     );
     if (!matchedUser) return null;
 
@@ -68,7 +74,8 @@ export function AuthProvider({ children }) {
 
   const register = async (details) => {
     const normalizedEmail = details.email.trim().toLowerCase();
-    if (users.some((item) => item.email.toLowerCase() === normalizedEmail)) {
+    const existingEmails = users.flatMap((item) => getUserEmails(item));
+    if (existingEmails.includes(normalizedEmail)) {
       return { error: 'An account with this email already exists.' };
     }
 
@@ -91,10 +98,10 @@ export function AuthProvider({ children }) {
   const updateUser = async (updates) => {
     if (!user) throw new Error('You must be signed in to update your profile.');
     const nextEmail = updates.email?.trim().toLowerCase();
-    if (
-      nextEmail &&
-      users.some((item) => item.id !== user.id && item.email.toLowerCase() === nextEmail)
-    ) {
+    const conflictingEmails = users
+      .filter((item) => item.id !== user.id)
+      .flatMap((item) => getUserEmails(item));
+    if (nextEmail && conflictingEmails.includes(nextEmail)) {
       throw new Error('An account with this email already exists.');
     }
     const nextUser = { ...user, ...updates };
