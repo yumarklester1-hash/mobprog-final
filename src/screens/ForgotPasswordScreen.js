@@ -22,7 +22,7 @@ export default function ForgotPasswordScreen() {
       <View style={styles.icon}>
         <Ionicons name="mail-unread-outline" size={30} color={colors.primary} />
       </View>
-      <Text style={styles.title}>Password reset unavailable</Text>
+      <Text style={styles.title}>Password reset is unavailable</Text>
       <Text style={styles.subtitle}>
         This local demo does not have an email service to verify your identity or send a reset link.
         No email has been sent.
