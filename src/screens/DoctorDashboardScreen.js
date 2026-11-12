@@ -33,6 +33,7 @@ export default function DoctorDashboardScreen() {
       return {
         ...item,
         patientName: item.patientName || patient?.name || 'Patient',
+        patientProfilePhoto: patient?.profilePhoto || item.patientProfilePhoto,
         patientEmail: item.patientEmail || patient?.email,
         patientPhone: item.patientPhone || patient?.phone,
       };
@@ -133,7 +134,11 @@ export default function DoctorDashboardScreen() {
             accessibilityLabel={`${item.patientName}, ${item.service}, ${item.date} at ${item.time}`}
           >
             <View style={styles.patientIcon}>
-              <Ionicons name="person-outline" size={22} color={colors.primary} />
+              {item.patientProfilePhoto ? (
+                <Image source={{ uri: item.patientProfilePhoto }} style={styles.patientPhoto} />
+              ) : (
+                <Ionicons name="person-outline" size={22} color={colors.primary} />
+              )}
             </View>
             <View style={styles.appointmentInfo}>
               <Text style={styles.patientName}>{item.patientName}</Text>
@@ -215,6 +220,7 @@ const styles = StyleSheet.create({
   filterTextSelected: { color: colors.white, fontWeight: '700' },
   appointmentCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.sm },
   patientIcon: { width: 44, height: 44, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primaryLight },
+  patientPhoto: { width: '100%', height: '100%', borderRadius: radius.sm },
   appointmentInfo: { flex: 1 },
   patientName: { ...typography.body, fontWeight: '700' },
   service: { ...typography.caption, color: colors.secondary, marginTop: 2 },

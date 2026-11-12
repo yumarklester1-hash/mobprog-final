@@ -1,5 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -88,6 +97,7 @@ export default function NewAppointmentScreen() {
       const appointment = await addAppointment({
         patientId: user.id,
         patientName: user.name,
+        patientProfilePhoto: user.profilePhoto,
         patientEmail: user.email,
         patientPhone: user.phone,
         doctorId: selectedDoctor.id,
@@ -139,101 +149,110 @@ export default function NewAppointmentScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={22} color={colors.secondary} />
-          <Text style={styles.backText}>Back</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>Make an appointment</Text>
-        <Text style={styles.subtitle}>Choose a dentist, service, and available time.</Text>
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoidingView}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ScrollView
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+        >
+          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+            <Ionicons name="arrow-back" size={22} color={colors.secondary} />
+            <Text style={styles.backText}>Back</Text>
+          </TouchableOpacity>
+          <Text style={styles.title}>Make an appointment</Text>
+          <Text style={styles.subtitle}>Choose a dentist, service, and available time.</Text>
 
-        <Text style={styles.label}>Dentist</Text>
-        {doctors.length ? (
-          <View style={styles.doctorList}>
-            {doctors.map((doctor) => (
+          <Text style={styles.label}>Dentist</Text>
+          {doctors.length ? (
+            <View style={styles.doctorList}>
+              {doctors.map((doctor) => (
+                <TouchableOpacity
+                  key={doctor.id}
+                  style={[styles.doctorOption, doctorId === doctor.id && styles.doctorSelected]}
+                  onPress={() => {
+                    setDoctorId(doctor.id);
+                    setTime('');
+                    setError('');
+                  }}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: doctorId === doctor.id }}
+                >
+                  <View style={styles.doctorIcon}>
+                    <Ionicons name="person-outline" size={20} color={colors.primary} />
+                  </View>
+                  <View style={styles.doctorInfo}>
+                    <Text style={styles.doctorName}>{doctor.name}</Text>
+                    <Text style={styles.doctorSpecialty}>{doctor.specialty}</Text>
+                  </View>
+                  {doctorId === doctor.id ? (
+                    <Ionicons name="checkmark-circle" size={21} color={colors.primary} />
+                  ) : null}
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : (
+            <Text style={styles.emptyDoctors}>
+              No dentists are available in this local demo.
+            </Text>
+          )}
+
+          <Text style={styles.label}>Service</Text>
+          <View style={styles.serviceRow}>
+            {dentalServices.map((option) => (
               <TouchableOpacity
-                key={doctor.id}
-                style={[styles.doctorOption, doctorId === doctor.id && styles.doctorSelected]}
+                key={option.id}
+                style={[styles.serviceOption, serviceId === option.id && styles.serviceSelected]}
                 onPress={() => {
-                  setDoctorId(doctor.id);
-                  setTime('');
+                  setServiceId(option.id);
                   setError('');
                 }}
                 accessibilityRole="button"
-                accessibilityState={{ selected: doctorId === doctor.id }}
+                accessibilityState={{ selected: serviceId === option.id }}
               >
-                <View style={styles.doctorIcon}>
-                  <Ionicons name="person-outline" size={20} color={colors.primary} />
-                </View>
-                <View style={styles.doctorInfo}>
-                  <Text style={styles.doctorName}>{doctor.name}</Text>
-                  <Text style={styles.doctorSpecialty}>{doctor.specialty}</Text>
-                </View>
-                {doctorId === doctor.id ? (
-                  <Ionicons name="checkmark-circle" size={21} color={colors.primary} />
-                ) : null}
+                <Text style={[styles.serviceText, serviceId === option.id && styles.serviceTextSelected]}>
+                  {option.name}
+                </Text>
+                <Text style={styles.serviceDuration}>{option.duration}</Text>
               </TouchableOpacity>
             ))}
           </View>
-        ) : (
-          <Text style={styles.emptyDoctors}>
-            No dentists are available in this local demo.
-          </Text>
-        )}
 
-        <Text style={styles.label}>Service</Text>
-        <View style={styles.serviceRow}>
-          {dentalServices.map((option) => (
-            <TouchableOpacity
-              key={option.id}
-              style={[styles.serviceOption, serviceId === option.id && styles.serviceSelected]}
-              onPress={() => {
-                setServiceId(option.id);
-                setError('');
-              }}
-              accessibilityRole="button"
-              accessibilityState={{ selected: serviceId === option.id }}
-            >
-              <Text style={[styles.serviceText, serviceId === option.id && styles.serviceTextSelected]}>
-                {option.name}
-              </Text>
-              <Text style={styles.serviceDuration}>{option.duration}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+          <Text style={styles.label}>Date</Text>
+          <TouchableOpacity style={styles.pickerButton} onPress={openDatePicker} accessibilityRole="button">
+            <Ionicons name="calendar-outline" size={20} color={colors.primary} />
+            <Text style={[styles.pickerText, !date && styles.pickerPlaceholder]}>
+              {date ? date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'Choose a date'}
+            </Text>
+            <Ionicons name="chevron-down" size={18} color={colors.placeholder} />
+          </TouchableOpacity>
 
-        <Text style={styles.label}>Date</Text>
-        <TouchableOpacity style={styles.pickerButton} onPress={openDatePicker} accessibilityRole="button">
-          <Ionicons name="calendar-outline" size={20} color={colors.primary} />
-          <Text style={[styles.pickerText, !date && styles.pickerPlaceholder]}>
-            {date ? date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'Choose a date'}
-          </Text>
-          <Ionicons name="chevron-down" size={18} color={colors.placeholder} />
-        </TouchableOpacity>
-
-        <Text style={[styles.label, styles.timeLabel]}>Time</Text>
-        <TouchableOpacity
-          style={[styles.pickerButton, !date && styles.pickerDisabled]}
-          onPress={() => date && setPicker('time')}
-          disabled={!date}
-          accessibilityRole="button"
-        >
-          <Ionicons name="time-outline" size={20} color={colors.primary} />
-          <Text style={[styles.pickerText, !time && styles.pickerPlaceholder]}>
-            {time || (date ? 'Choose a time' : 'Choose a date first')}
-          </Text>
-          <Ionicons name="chevron-down" size={18} color={colors.placeholder} />
-        </TouchableOpacity>
-        <InputField
-          label="Notes (optional)"
-          icon="chatbox-ellipses-outline"
-          placeholder="Anything we should know?"
-          value={notes}
-          onChangeText={setNotes}
-        />
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-        <AppButton title="Request appointment" onPress={handleSubmit} loading={saving} style={styles.button} />
-      </ScrollView>
+          <Text style={[styles.label, styles.timeLabel]}>Time</Text>
+          <TouchableOpacity
+            style={[styles.pickerButton, !date && styles.pickerDisabled]}
+            onPress={() => date && setPicker('time')}
+            disabled={!date}
+            accessibilityRole="button"
+          >
+            <Ionicons name="time-outline" size={20} color={colors.primary} />
+            <Text style={[styles.pickerText, !time && styles.pickerPlaceholder]}>
+              {time || (date ? 'Choose a time' : 'Choose a date first')}
+            </Text>
+            <Ionicons name="chevron-down" size={18} color={colors.placeholder} />
+          </TouchableOpacity>
+          <InputField
+            label="Notes (optional)"
+            icon="chatbox-ellipses-outline"
+            placeholder="Anything we should know?"
+            value={notes}
+            onChangeText={setNotes}
+          />
+          {error ? <Text style={styles.error}>{error}</Text> : null}
+          <AppButton title="Request appointment" onPress={handleSubmit} loading={saving} style={styles.button} />
+          </ScrollView>
+      </KeyboardAvoidingView>
 
       <Modal visible={picker !== ''} transparent animationType="fade" onRequestClose={() => setPicker('')}>
         <View style={styles.modalBackdrop}>
@@ -343,6 +362,7 @@ export default function NewAppointmentScreen() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
+  keyboardAvoidingView: { flex: 1 },
   content: { padding: spacing.lg, paddingBottom: spacing.xl },
   backButton: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.lg },
   backText: { ...typography.body, color: colors.secondary, marginLeft: spacing.sm },

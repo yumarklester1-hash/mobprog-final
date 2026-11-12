@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -25,6 +25,7 @@ export default function AppointmentDetailsScreen() {
         : item.patientId === user?.id),
   );
   const patient = users.find((item) => item.id === appointment?.patientId);
+  const patientProfilePhoto = patient?.profilePhoto || appointment?.patientProfilePhoto;
   const appointmentsRoute = user?.role === 'doctor' ? '/doctor' : '/appointments';
   const service = appointment && dentalServices.find((item) => item.id === appointment.serviceId);
 
@@ -93,7 +94,19 @@ export default function AppointmentDetailsScreen() {
           <DetailRow icon="time-outline" label="Time" value={appointment.time} />
           {user?.role === 'doctor' ? (
             <>
-              <DetailRow icon="person-outline" label="Patient" value={appointment.patientName || patient?.name || 'Patient'} />
+              <View style={styles.patientProfile}>
+                <View style={styles.patientAvatar}>
+                  {patientProfilePhoto ? (
+                    <Image source={{ uri: patientProfilePhoto }} style={styles.patientAvatarImage} />
+                  ) : (
+                    <Ionicons name="person-outline" size={25} color={colors.primary} />
+                  )}
+                </View>
+                <View style={styles.patientProfileInfo}>
+                  <Text style={styles.patientProfileName}>{appointment.patientName || patient?.name || 'Patient'}</Text>
+                  <Text style={styles.patientProfileCaption}>Patient profile</Text>
+                </View>
+              </View>
               <DetailRow icon="mail-outline" label="Patient email" value={appointment.patientEmail || patient?.email} />
               {appointment.patientPhone || patient?.phone ? (
                 <DetailRow icon="call-outline" label="Patient phone" value={appointment.patientPhone || patient.phone} />
@@ -156,6 +169,12 @@ const styles = StyleSheet.create({
   title: { ...typography.h1, marginTop: spacing.lg },
   detailsCard: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.md, marginTop: spacing.xl },
   detailRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.sm },
+  patientProfile: { flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border, marginBottom: spacing.sm },
+  patientAvatar: { width: 52, height: 52, borderRadius: radius.pill, backgroundColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  patientAvatarImage: { width: '100%', height: '100%' },
+  patientProfileInfo: { marginLeft: spacing.md },
+  patientProfileName: { ...typography.body, fontWeight: '700' },
+  patientProfileCaption: { ...typography.caption, color: colors.textMuted, marginTop: 2 },
   detailText: { marginLeft: spacing.md },
   detailLabel: { ...typography.caption },
   detailValue: { ...typography.body, fontWeight: '600', marginTop: 2 },
