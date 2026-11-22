@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   KeyboardAvoidingView,
+  Image,
   Modal,
   Platform,
   ScrollView,
@@ -16,13 +17,12 @@ import AppButton from '../components/AppButton';
 import InputField from '../components/InputField';
 import { useAuth } from '../context/AuthContext';
 import { useAppointments } from '../context/AppointmentContext';
-import { doctors } from '../data/doctors';
 import { dentalServices } from '../data/dentalServices';
 import { colors, spacing, typography } from '../theme/theme';
 
 export default function NewAppointmentScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, doctors } = useAuth();
   const { appointments, addAppointment } = useAppointments();
   const [doctorId, setDoctorId] = useState('');
   const [serviceId, setServiceId] = useState('');
@@ -181,7 +181,11 @@ export default function NewAppointmentScreen() {
                   accessibilityState={{ selected: doctorId === doctor.id }}
                 >
                   <View style={styles.doctorIcon}>
-                    <Ionicons name="person-outline" size={20} color={colors.primary} />
+                    {doctor.profilePhoto ? (
+                      <Image source={{ uri: doctor.profilePhoto }} style={styles.doctorProfilePhoto} />
+                    ) : (
+                      <Ionicons name="person-outline" size={20} color={colors.primary} />
+                    )}
                   </View>
                   <View style={styles.doctorInfo}>
                     <Text style={styles.doctorName}>{doctor.name}</Text>
@@ -372,7 +376,8 @@ const styles = StyleSheet.create({
   doctorList: { gap: spacing.sm, marginBottom: spacing.lg },
   doctorOption: { flexDirection: 'row', alignItems: 'center', borderWidth: 1.5, borderColor: colors.border, borderRadius: 12, padding: spacing.md },
   doctorSelected: { borderColor: colors.primary, backgroundColor: colors.primaryLight },
-  doctorIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primaryLight },
+  doctorIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primaryLight, overflow: 'hidden' },
+  doctorProfilePhoto: { width: '100%', height: '100%' },
   doctorInfo: { flex: 1, marginLeft: spacing.md },
   doctorName: { ...typography.body, fontWeight: '700' },
   doctorSpecialty: { ...typography.caption, marginTop: 2 },

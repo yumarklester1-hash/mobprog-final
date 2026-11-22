@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { FlatList, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { FlatList, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -41,9 +41,15 @@ export default function AppointmentsScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <FlatList
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoidingView}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <FlatList
         data={filteredAppointments}
         keyExtractor={(item) => item.id}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
         contentContainerStyle={[styles.content, filteredAppointments.length === 0 && styles.emptyContent]}
         ListHeaderComponent={
           <View style={styles.header}>
@@ -144,13 +150,15 @@ export default function AppointmentsScreen() {
             ))}
           </View>
         }
-      />
+        />
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
+  keyboardAvoidingView: { flex: 1 },
   content: { padding: spacing.lg, paddingBottom: spacing.xl },
   emptyContent: { flexGrow: 1 },
   header: { marginBottom: spacing.lg },

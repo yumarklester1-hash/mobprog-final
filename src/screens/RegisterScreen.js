@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  Alert,
   View,
   Text,
   StyleSheet,
@@ -66,6 +67,14 @@ export default function RegisterScreen() {
         setErrors({ email: result.error });
         return;
       }
+      if (result.needsConfirmation) {
+        Alert.alert(
+          'Check your email',
+          'Confirm your email address, then sign in to continue.',
+          [{ text: 'OK', onPress: () => router.replace('/login') }],
+        );
+        return;
+      }
       router.replace('/home');
     } catch (error) {
       setErrors({ form: error.message || 'Unable to create your account. Please try again.' });
@@ -78,7 +87,7 @@ export default function RegisterScreen() {
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <ScrollView
           contentContainerStyle={styles.scrollContent}
@@ -92,7 +101,7 @@ export default function RegisterScreen() {
           <InputField
             label="First Name"
             icon="person-outline"
-            placeholder="Juan Dela Cruz"
+            placeholder="Juan"
             value={form.firstName}
             onChangeText={update('firstName')}
             error={errors.firstName}

@@ -1,8 +1,8 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { useAuth } from './AuthContext';
+import { supabase, supabaseConfigError } from '../lib/supabase';
 
 const AppointmentContext = createContext(null);
-const STORAGE_KEY = 'dental-app-appointments-v1';
 const allowedTransitions = {
   pending: ['confirmed', 'cancelled'],
   confirmed: ['completed', 'cancelled'],
@@ -10,38 +10,95 @@ const allowedTransitions = {
   cancelled: [],
 };
 
+function mapAppointment(row) {
+  return {
+    id: row.id,
+    patientId: row.patient_id,
+    patientName: row.patient_name,
+    patientProfilePhoto: row.patient_profile_photo,
+    patientEmail: row.patient_email,
+    patientPhone: row.patient_phone,
+    doctorId: row.doctor_id,
+    doctorName: row.doctor_name,
+    serviceId: row.service_id,
+    service: row.service,
+    date: row.date_label,
+    dateIso: row.date_iso,
+    time: row.time_slot,
+    notes: row.notes,
+    status: row.status,
+    cancelledBy: row.cancelled_by,
+    cancelledAt: row.cancelled_at,
+    updatedAt: row.updated_at,
+  };
+}
+
 export function AppointmentProvider({ children }) {
+  const { user, ready: authReady } = useAuth();
   const [appointments, setAppointments] = useState([]);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState('');
+  const loadRequest = useRef(0);
 
   const load = useCallback(async () => {
+    const requestId = ++loadRequest.current;
     setError('');
-    setReady(false);
+    setAppointments([]);
     try {
-      const saved = await AsyncStorage.getItem(STORAGE_KEY);
-      const parsed = saved === null ? [] : JSON.parse(saved);
-      if (!Array.isArray(parsed)) throw new Error('Saved appointments data is invalid.');
-      setAppointments(parsed);
-      setReady(true);
+      if (!authReady) return;
+      if (!user) {
+        return;
+      }
+      if (supabaseConfigError) throw new Error(supabaseConfigError);
+      const { data, error: queryError } = await supabase
+        .from('appointments')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (queryError) throw queryError;
+      if (requestId !== loadRequest.current) return;
+      setAppointments(data.map(mapAppointment));
     } catch (loadError) {
-      setError(loadError.message || 'Unable to load saved appointments.');
+      if (requestId === loadRequest.current) {
+        setError(loadError.message || 'Unable to load appointments.');
+      }
+    } finally {
+      if (authReady && requestId === loadRequest.current) setReady(true);
     }
-  }, []);
+  }, [authReady, user?.id]);
 
   useEffect(() => {
     load();
   }, [load]);
 
   const addAppointment = async (details) => {
-    const appointment = {
-      id: `appointment-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      status: 'pending',
-      ...details,
-    };
-    const nextAppointments = [appointment, ...appointments];
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(nextAppointments));
-    setAppointments(nextAppointments);
+    if (!supabase) throw new Error(supabaseConfigError);
+    const { data, error: insertError } = await supabase
+      .from('appointments')
+      .insert({
+        patient_id: details.patientId,
+        patient_name: details.patientName,
+        patient_profile_photo: null,
+        patient_email: details.patientEmail,
+        patient_phone: details.patientPhone,
+        doctor_id: details.doctorId,
+        doctor_name: details.doctorName,
+        service_id: details.serviceId,
+        service: details.service,
+        date_label: details.date,
+        date_iso: details.dateIso,
+        time_slot: details.time,
+        notes: details.notes,
+      })
+      .select('*')
+      .single();
+    if (insertError) {
+      if (insertError.code === '23505') {
+        throw new Error('That time was just booked. Please choose another slot.');
+      }
+      throw insertError;
+    }
+    const appointment = mapAppointment(data);
+    setAppointments((current) => [appointment, ...current]);
     return appointment;
   };
 
@@ -51,12 +108,21 @@ export function AppointmentProvider({ children }) {
     if (updates.status && !allowedTransitions[current.status]?.includes(updates.status)) {
       throw new Error(`Cannot change an appointment from ${current.status} to ${updates.status}.`);
     }
-    const nextAppointments = appointments.map((item) =>
-      item.id === id ? { ...item, ...updates, updatedAt: new Date().toISOString() } : item,
-    );
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(nextAppointments));
-    setAppointments(nextAppointments);
-    return nextAppointments.find((item) => item.id === id);
+    if (!supabase) throw new Error(supabaseConfigError);
+    const { data, error: updateError } = await supabase
+      .from('appointments')
+      .update({
+        status: updates.status,
+        cancelled_by: updates.cancelledBy,
+        cancelled_at: updates.cancelledAt,
+      })
+      .eq('id', id)
+      .select('*')
+      .single();
+    if (updateError) throw updateError;
+    const appointment = mapAppointment(data);
+    setAppointments((current) => current.map((item) => (item.id === id ? appointment : item)));
+    return appointment;
   };
 
   const value = useMemo(() => ({

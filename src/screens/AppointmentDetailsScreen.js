@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -77,7 +77,7 @@ export default function AppointmentDetailsScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.content}>
+      <ScrollView contentContainerStyle={styles.content}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={22} color={colors.secondary} />
           <Text style={styles.backText}>{user?.role === 'doctor' ? 'Dashboard' : 'Appointments'}</Text>
@@ -103,13 +103,13 @@ export default function AppointmentDetailsScreen() {
                   )}
                 </View>
                 <View style={styles.patientProfileInfo}>
-                  <Text style={styles.patientProfileName}>{appointment.patientName || patient?.name || 'Patient'}</Text>
+                  <Text style={styles.patientProfileName}>{patient?.name || appointment.patientName || 'Patient'}</Text>
                   <Text style={styles.patientProfileCaption}>Patient profile</Text>
                 </View>
               </View>
-              <DetailRow icon="mail-outline" label="Patient email" value={appointment.patientEmail || patient?.email} />
-              {appointment.patientPhone || patient?.phone ? (
-                <DetailRow icon="call-outline" label="Patient phone" value={appointment.patientPhone || patient.phone} />
+              <DetailRow icon="mail-outline" label="Patient email" value={patient?.email || appointment.patientEmail} />
+              {patient?.phone || appointment.patientPhone ? (
+                <DetailRow icon="call-outline" label="Patient phone" value={patient?.phone || appointment.patientPhone} />
               ) : null}
             </>
           ) : (
@@ -143,7 +143,7 @@ export default function AppointmentDetailsScreen() {
           />
         ) : null}
         <AppButton title="Back to appointments" variant="outline" onPress={() => router.replace(appointmentsRoute)} style={styles.button} />
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -162,7 +162,7 @@ function DetailRow({ icon, label, value }) {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
-  content: { padding: spacing.lg },
+  content: { flexGrow: 1, padding: spacing.lg, paddingBottom: spacing.xl },
   backButton: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xl },
   backText: { ...typography.body, color: colors.secondary, marginLeft: spacing.sm },
   heroIcon: { width: 68, height: 68, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary },

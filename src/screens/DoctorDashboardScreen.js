@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
   FlatList,
   Image,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -14,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import AppointmentStatusBadge from '../components/AppointmentStatusBadge';
+import LogoutButton from '../components/LogoutButton';
 import { useAuth } from '../context/AuthContext';
 import { useAppointments } from '../context/AppointmentContext';
 import { colors, radius, spacing, typography } from '../theme/theme';
@@ -22,7 +24,7 @@ const filters = ['all', 'pending', 'confirmed', 'completed', 'cancelled'];
 
 export default function DoctorDashboardScreen() {
   const router = useRouter();
-  const { user, users, logout } = useAuth();
+  const { user, users } = useAuth();
   const { appointments } = useAppointments();
   const [statusFilter, setStatusFilter] = useState('all');
   const [search, setSearch] = useState('');
@@ -32,10 +34,10 @@ export default function DoctorDashboardScreen() {
       const patient = users.find((savedUser) => savedUser.id === item.patientId);
       return {
         ...item,
-        patientName: item.patientName || patient?.name || 'Patient',
+        patientName: patient?.name || item.patientName || 'Patient',
         patientProfilePhoto: patient?.profilePhoto || item.patientProfilePhoto,
-        patientEmail: item.patientEmail || patient?.email,
-        patientPhone: item.patientPhone || patient?.phone,
+        patientEmail: patient?.email || item.patientEmail,
+        patientPhone: patient?.phone || item.patientPhone,
       };
     });
   const pendingCount = doctorAppointments.filter((item) => item.status === 'pending').length;
@@ -65,9 +67,15 @@ export default function DoctorDashboardScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <FlatList
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoidingView}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <FlatList
         data={visibleAppointments}
         keyExtractor={(item) => item.id}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
         contentContainerStyle={[styles.content, visibleAppointments.length === 0 && styles.emptyContent]}
         ListHeaderComponent={
           <View>
@@ -164,24 +172,9 @@ export default function DoctorDashboardScreen() {
             </Text>
           </View>
         }
-        ListFooterComponent={
-          <TouchableOpacity
-            style={styles.logoutButton}
-            onPress={async () => {
-              try {
-                await logout();
-                router.replace('/login');
-              } catch (error) {
-                Alert.alert('Unable to log out', error.message || 'Please try again.');
-              }
-            }}
-            accessibilityRole="button"
-          >
-            <Ionicons name="log-out-outline" size={20} color={colors.danger} />
-            <Text style={styles.logoutText}>Log out</Text>
-          </TouchableOpacity>
-        }
-      />
+        ListFooterComponent={<LogoutButton style={styles.logoutButton} />}
+        />
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -198,6 +191,7 @@ function SummaryCard({ label, value, icon }) {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
+  keyboardAvoidingView: { flex: 1 },
   content: { padding: spacing.lg, paddingBottom: spacing.xl },
   emptyContent: { flexGrow: 1 },
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -229,6 +223,5 @@ const styles = StyleSheet.create({
   emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: spacing.xxl },
   emptyTitle: { ...typography.h2, marginTop: spacing.md, textAlign: 'center' },
   emptyText: { ...typography.body, color: colors.textMuted, textAlign: 'center', marginTop: spacing.sm },
-  logoutButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, paddingVertical: spacing.lg },
-  logoutText: { ...typography.body, color: colors.danger, fontWeight: '700' },
+  logoutButton: { marginTop: spacing.md },
 });

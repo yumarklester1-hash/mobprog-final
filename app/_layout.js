@@ -24,19 +24,21 @@ function AppNavigator() {
   const retry = () => Promise.all([auth.retry(), retryAppointments()]);
   const error = auth.error || appointmentsError;
 
+  if (error) {
+    return (
+      <View style={styles.startup}>
+        <Text style={styles.error}>{error}</Text>
+        <TouchableOpacity onPress={retry} accessibilityRole="button">
+          <Text style={styles.retry}>Try again</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   if (!auth.ready || !appointmentsReady) {
     return (
       <View style={styles.startup}>
-        {error ? (
-          <>
-            <Text style={styles.error}>{error}</Text>
-            <TouchableOpacity onPress={retry} accessibilityRole="button">
-              <Text style={styles.retry}>Try again</Text>
-            </TouchableOpacity>
-          </>
-        ) : (
-          <ActivityIndicator size="large" color={colors.primary} />
-        )}
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -50,6 +52,7 @@ function AppNavigator() {
       <Stack.Screen name="login" options={{ title: 'Login' }} />
       <Stack.Screen name="register" options={{ title: 'Create account' }} />
       <Stack.Screen name="forgot-password" options={{ title: 'Reset password' }} />
+      <Stack.Screen name="reset-password" options={{ title: 'Choose a new password' }} />
       <Stack.Screen name="home" options={{ title: 'Patient home' }} />
       <Stack.Screen name="doctor" options={{ title: 'Doctor dashboard' }} />
       <Stack.Screen name="profile" options={{ title: 'Profile' }} />

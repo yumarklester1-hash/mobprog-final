@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, Image, ScrollView, View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { Image, ScrollView, View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import AppButton from '../components/AppButton';
+import LogoutButton from '../components/LogoutButton';
 import { useAppointments } from '../context/AppointmentContext';
 import { useAuth } from '../context/AuthContext';
 import { colors, radius, spacing, typography } from '../theme/theme';
@@ -11,7 +12,7 @@ import { colors, radius, spacing, typography } from '../theme/theme';
 export default function HomeScreen() {
   const router = useRouter();
   const { appointments } = useAppointments();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const patientAppointments = appointments.filter((item) => item.patientId === user?.id);
   const [profilePhoto, setProfilePhoto] = useState(user?.profilePhoto || null);
   const firstName = user?.firstName || user?.name?.split(' ')[0];
@@ -84,19 +85,7 @@ export default function HomeScreen() {
           onPress={() => router.push('/appointments')}
           style={styles.button}
         />
-        <AppButton
-          title="Log Out"
-          variant="text"
-          onPress={async () => {
-            try {
-              await logout();
-              router.replace('/login');
-            } catch (error) {
-              Alert.alert('Unable to log out', error.message || 'Please try again.');
-            }
-          }}
-          style={styles.logout}
-        />
+        <LogoutButton style={styles.logout} />
       </ScrollView>
     </SafeAreaView>
   );

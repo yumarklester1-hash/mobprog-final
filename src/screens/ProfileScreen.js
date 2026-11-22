@@ -1,17 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import AppButton from '../components/AppButton';
 import InputField from '../components/InputField';
+import LogoutButton from '../components/LogoutButton';
 import { useAuth } from '../context/AuthContext';
 import { colors, radius, spacing, typography } from '../theme/theme';
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { user, updateUser, uploadProfilePhoto, updatePassword, logout } = useAuth();
+  const { user, updateUser, uploadProfilePhoto, updatePassword } = useAuth();
   const currentUser = user || {};
   const [photoUri, setPhotoUri] = useState(currentUser.profilePhoto || null);
   const [form, setForm] = useState({
@@ -54,12 +55,13 @@ export default function ProfileScreen() {
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
+        base64: true,
       });
 
       if (result.canceled || !result.assets?.[0]?.uri) return;
 
-      const uri = result.assets[0].uri;
-      const updatedUser = await uploadProfilePhoto(uri);
+      const { uri, base64, mimeType } = result.assets[0];
+      const updatedUser = await uploadProfilePhoto(uri, base64, mimeType);
       setPhotoUri(updatedUser.profilePhoto);
       setMessage('Profile photo updated.');
     } catch (error) {
@@ -95,7 +97,6 @@ export default function ProfileScreen() {
   const savePassword = async () => {
     const nextErrors = {};
     if (!passwords.current) nextErrors.current = 'Enter your current password';
-    else if (passwords.current !== currentUser.password) nextErrors.current = 'Current password is incorrect';
     if (!passwords.next) nextErrors.next = 'Enter a new password';
     else if (passwords.next.length < 6) nextErrors.next = 'Use at least 6 characters';
     if (passwords.confirm !== passwords.next) nextErrors.confirm = 'Passwords do not match';
@@ -116,7 +117,15 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoidingView}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ScrollView
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+        >
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={22} color={colors.secondary} />
           <Text style={styles.backText}>Back</Text>
@@ -165,26 +174,16 @@ export default function ProfileScreen() {
           <AppButton title="Update password" variant="outline" onPress={savePassword} />
         </View>
         {message ? <Text style={styles.message}>{message}</Text> : null}
-        <AppButton
-          title="Log out"
-          variant="outline"
-          onPress={async () => {
-            try {
-              await logout();
-              router.replace('/login');
-            } catch (error) {
-              setMessage(error.message || 'Unable to log out.');
-            }
-          }}
-          style={{ marginTop: spacing.md }}
-        />
-      </ScrollView>
+        <LogoutButton style={{ marginTop: spacing.md }} />
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
+  keyboardAvoidingView: { flex: 1 },
   content: { padding: spacing.lg, paddingBottom: spacing.xl },
   backButton: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.lg },
   backText: { ...typography.body, color: colors.secondary, marginLeft: spacing.sm },

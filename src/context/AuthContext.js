@@ -1,31 +1,58 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { doctors } from '../data/doctors';
+import { decode } from 'base64-arraybuffer';
+import { supabase, supabaseConfigError } from '../lib/supabase';
 
-const USERS_KEY = 'dental-app-users-v1';
-const SESSION_KEY = 'dental-app-session-v1';
 const AuthContext = createContext(null);
+const PROFILE_PHOTO_BUCKET = 'profile-photos';
+const PROFILE_PHOTO_URL_TTL_SECONDS = 60 * 60;
+const PROFILE_PHOTO_MIME_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/heic',
+  'image/heif',
+]);
 
-function parseStoredValue(value, fallback, label) {
-  if (value === null) return fallback;
-  try {
-    return JSON.parse(value);
-  } catch {
-    throw new Error(`Saved ${label} data is invalid. Clear the app data and try again.`);
-  }
+function mapProfile(profile, email) {
+  return {
+    id: profile.id,
+    email: email || profile.email,
+    firstName: profile.first_name || '',
+    lastName: profile.last_name || '',
+    name: profile.name || '',
+    phone: profile.phone || '',
+    profilePhoto: null,
+    profilePhotoPath: profile.profile_photo_path || null,
+    specialty: profile.specialty || '',
+    role: profile.role,
+  };
 }
 
-function getUserEmails(user) {
-  return [user?.email, ...(user?.emailAliases || [])]
-    .filter(Boolean)
-    .map((email) => email.trim().toLowerCase());
+async function getProfilePhotoUrl(path) {
+  const { data, error } = await supabase.storage
+    .from(PROFILE_PHOTO_BUCKET)
+    .createSignedUrl(path, PROFILE_PHOTO_URL_TTL_SECONDS);
+  if (error) throw error;
+  return data.signedUrl;
 }
 
-function mergeDoctors(savedUsers) {
-  return doctors.map((doctor) => ({
-    ...doctor,
-    ...savedUsers.find((user) => user.id === doctor.id),
-  })).concat(savedUsers.filter((user) => user.role === 'patient'));
+function getPhotoContentType(uri, mimeType) {
+  const normalizedMimeType = mimeType?.split(';')[0].toLowerCase();
+  if (PROFILE_PHOTO_MIME_TYPES.has(normalizedMimeType)) return normalizedMimeType;
+
+  const extension = uri.split(/[?#]/)[0].split('.').pop().toLowerCase();
+  const extensionTypes = {
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    png: 'image/png',
+    webp: 'image/webp',
+    heic: 'image/heic',
+    heif: 'image/heif',
+  };
+  const inferredType = extensionTypes[extension];
+  if (inferredType) return inferredType;
+  throw new Error('Unable to determine the selected photo format. Please choose another image.');
 }
 
 export function AuthProvider({ children }) {
@@ -34,95 +61,211 @@ export function AuthProvider({ children }) {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState('');
 
+  const loadProfiles = useCallback(async (authUser) => {
+    const [
+      { data: profiles, error: profilesError },
+      { data: doctorRows, error: doctorsError },
+    ] = await Promise.all([
+      supabase.from('profiles').select('*').order('first_name'),
+      supabase.from('doctors').select('*').order('name'),
+    ]);
+    if (profilesError) throw profilesError;
+    if (doctorsError) throw doctorsError;
+    const profile = profiles.find((item) => item.id === authUser.id);
+    if (!profile) {
+      throw new Error('Your profile is missing. Apply the Supabase database migration and sign in again.');
+    }
+
+    const photo = await AsyncStorage.getItem(`dental-app-profile-photo-${authUser.id}`);
+    const loadedProfiles = profiles.map((item) =>
+      mapProfile(item, item.id === authUser.id ? authUser.email : null),
+    );
+    const usersById = new Map(loadedProfiles.map((item) => [item.id, item]));
+    doctorRows.forEach((doctor) => {
+      if (usersById.has(doctor.id)) return;
+      usersById.set(doctor.id, {
+        ...mapProfile(doctor),
+        role: 'doctor',
+      });
+    });
+
+    const profilesWithPhotos = await Promise.all(
+      [...usersById.values()].map(async (item) => ({
+        ...item,
+        profilePhoto: item.profilePhotoPath
+          ? await getProfilePhotoUrl(item.profilePhotoPath)
+          : null,
+      })),
+    );
+    const currentUser = profilesWithPhotos.find((item) => item.id === authUser.id);
+    if (!currentUser.profilePhoto) currentUser.profilePhoto = photo;
+    setUsers(profilesWithPhotos);
+    setUser(currentUser);
+    setError('');
+    return currentUser;
+  }, []);
+
   const load = useCallback(async () => {
     setError('');
     setReady(false);
     try {
-      const [[, savedUsersValue], [, sessionValue]] = await AsyncStorage.multiGet([
-        USERS_KEY,
-        SESSION_KEY,
-      ]);
-      const savedUsers = parseStoredValue(savedUsersValue, [], 'account');
-      const nextUsers = mergeDoctors(savedUsers);
-      const savedSession = parseStoredValue(sessionValue, null, 'session');
-      const nextUser = nextUsers.find((item) => item.id === savedSession?.userId) || null;
-
-      setUsers(nextUsers);
-      setUser(nextUser);
-      await AsyncStorage.setItem(USERS_KEY, JSON.stringify(nextUsers));
-      setReady(true);
+      if (supabaseConfigError) throw new Error(supabaseConfigError);
+      const { data, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
+      if (data.session?.user) await loadProfiles(data.session.user);
+      else {
+        setUsers([]);
+        setUser(null);
+      }
     } catch (loadError) {
       setError(loadError.message || 'Unable to load saved accounts.');
+    } finally {
+      setReady(true);
     }
-  }, []);
+  }, [loadProfiles]);
 
   useEffect(() => {
     load();
-  }, [load]);
+    if (!supabase) return undefined;
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setTimeout(() => {
+        if (!session?.user) {
+          setUsers([]);
+          setUser(null);
+          setError('');
+          return;
+        }
+        loadProfiles(session.user).catch((profileError) => {
+          setError(profileError.message || 'Unable to load your profile.');
+        });
+      }, 0);
+    });
+    return () => subscription.unsubscribe();
+  }, [load, loadProfiles]);
 
   const login = async (email, password) => {
-    const normalizedEmail = email.trim().toLowerCase();
-    const matchedUser = users.find(
-      (item) => getUserEmails(item).includes(normalizedEmail) && item.password === password,
-    );
-    if (!matchedUser) return null;
-
-    await AsyncStorage.setItem(SESSION_KEY, JSON.stringify({ userId: matchedUser.id }));
-    setUser(matchedUser);
-    return matchedUser;
+    if (!supabase) throw new Error(supabaseConfigError);
+    const { data, error: loginError } = await supabase.auth.signInWithPassword({
+      email: email.trim().toLowerCase(),
+      password,
+    });
+    if (loginError) {
+      if (loginError.message.toLowerCase().includes('invalid login credentials')) return null;
+      throw loginError;
+    }
+    return loadProfiles(data.user);
   };
 
   const register = async (details) => {
-    const normalizedEmail = details.email.trim().toLowerCase();
-    const existingEmails = users.flatMap((item) => getUserEmails(item));
-    if (existingEmails.includes(normalizedEmail)) {
-      return { error: 'An account with this email already exists.' };
+    if (!supabase) throw new Error(supabaseConfigError);
+    const { data, error: registrationError } = await supabase.auth.signUp({
+      email: details.email.trim().toLowerCase(),
+      password: details.password,
+      options: {
+        data: {
+          first_name: details.firstName,
+          last_name: details.lastName,
+          name: details.name,
+          phone: details.phone,
+        },
+        emailRedirectTo: 'dental-app://login',
+      },
+    });
+    if (registrationError) {
+      if (registrationError.message.toLowerCase().includes('already registered')) {
+        return { error: 'An account with this email already exists.' };
+      }
+      throw registrationError;
     }
-
-    const newUser = {
-      ...details,
-      id: `patient-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      email: normalizedEmail,
-      role: 'patient',
-    };
-    const nextUsers = [...users, newUser];
-    await AsyncStorage.multiSet([
-      [USERS_KEY, JSON.stringify(nextUsers)],
-      [SESSION_KEY, JSON.stringify({ userId: newUser.id })],
-    ]);
-    setUsers(nextUsers);
-    setUser(newUser);
-    return { user: newUser };
+    if (data.session && data.user) await loadProfiles(data.user);
+    return { user: data.user, needsConfirmation: !data.session };
   };
 
   const updateUser = async (updates) => {
     if (!user) throw new Error('You must be signed in to update your profile.');
+    if (!supabase) throw new Error(supabaseConfigError);
     const nextEmail = updates.email?.trim().toLowerCase();
-    const conflictingEmails = users
-      .filter((item) => item.id !== user.id)
-      .flatMap((item) => getUserEmails(item));
-    if (nextEmail && conflictingEmails.includes(nextEmail)) {
-      throw new Error('An account with this email already exists.');
+    if (nextEmail && nextEmail !== user.email) {
+      const { error: emailError } = await supabase.auth.updateUser({ email: nextEmail });
+      if (emailError) throw emailError;
     }
-    const nextUser = { ...user, ...updates };
-    if (nextEmail) nextUser.email = nextEmail;
-    const nextUsers = users.map((item) => (item.id === user.id ? nextUser : item));
-    await AsyncStorage.setItem(USERS_KEY, JSON.stringify(nextUsers));
-    setUsers(nextUsers);
+    const { data, error: updateError } = await supabase
+      .from('profiles')
+      .update({
+        first_name: updates.firstName?.trim(),
+        last_name: updates.lastName?.trim(),
+        name: updates.name?.trim(),
+        phone: updates.phone?.trim(),
+      })
+      .eq('id', user.id)
+      .select('*')
+      .single();
+    if (updateError) throw updateError;
+    const nextUser = mapProfile(data, user.email);
+    nextUser.profilePhoto = user.profilePhoto;
+    setUsers((current) => current.map((item) => (item.id === user.id ? nextUser : item)));
     setUser(nextUser);
     return nextUser;
   };
 
   const updatePassword = async (currentPassword, newPassword) => {
-    if (currentPassword !== user?.password) throw new Error('Current password is incorrect.');
-    await updateUser({ password: newPassword });
+    if (!user || !supabase) throw new Error('You must be signed in to update your password.');
+    const { error: verifyError } = await supabase.auth.signInWithPassword({
+      email: user.email,
+      password: currentPassword,
+    });
+    if (verifyError) throw new Error('Current password is incorrect.');
+    const { error: passwordError } = await supabase.auth.updateUser({ password: newPassword });
+    if (passwordError) throw passwordError;
+  };
+
+  const requestPasswordReset = async (email) => {
+    if (!supabase) throw new Error(supabaseConfigError);
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+      email.trim().toLowerCase(),
+      { redirectTo: 'dental-app://reset-password' },
+    );
+    if (resetError) throw resetError;
   };
 
   const logout = async () => {
-    await AsyncStorage.removeItem(SESSION_KEY);
-    setUser(null);
+    if (!supabase) throw new Error(supabaseConfigError);
+    const { error: logoutError } = await supabase.auth.signOut();
+    if (logoutError) throw logoutError;
   };
 
+  const uploadProfilePhoto = async (uri, base64, mimeType) => {
+    if (!user) throw new Error('You must be signed in to update your profile photo.');
+    if (!supabase) throw new Error(supabaseConfigError);
+    if (!base64) throw new Error('Unable to read the selected photo. Please choose it again.');
+
+    const path = `${user.id}/avatar`;
+    const { error: uploadError } = await supabase.storage
+      .from(PROFILE_PHOTO_BUCKET)
+      .upload(path, decode(base64), {
+        cacheControl: '3600',
+        contentType: getPhotoContentType(uri, mimeType),
+        upsert: true,
+      });
+    if (uploadError) throw uploadError;
+
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update({ profile_photo_path: path })
+      .eq('id', user.id);
+    if (profileError) throw profileError;
+
+    const nextUser = {
+      ...user,
+      profilePhoto: await getProfilePhotoUrl(path),
+      profilePhotoPath: path,
+    };
+    setUser(nextUser);
+    setUsers((current) => current.map((item) => (item.id === user.id ? nextUser : item)));
+    return nextUser;
+  };
+
+  const doctors = users.filter((item) => item.role === 'doctor');
   const value = useMemo(() => ({
     user,
     users,
@@ -133,10 +276,11 @@ export function AuthProvider({ children }) {
     login,
     register,
     updateUser,
-    uploadProfilePhoto: async (uri) => updateUser({ profilePhoto: uri }),
+    uploadProfilePhoto,
     updatePassword,
+    requestPasswordReset,
     logout,
-  }), [user, users, ready, error, load]);
+  }), [user, users, doctors, ready, error, load]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
