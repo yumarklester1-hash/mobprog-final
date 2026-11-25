@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { FlatList, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { FlatList, KeyboardAvoidingView, Platform, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -7,13 +7,16 @@ import AppButton from '../components/AppButton';
 import AppointmentStatusBadge from '../components/AppointmentStatusBadge';
 import { useAuth } from '../context/AuthContext';
 import { useAppointments } from '../context/AppointmentContext';
+import { useTheme } from '../context/ThemeContext';
 import { dentalServices } from '../data/dentalServices';
-import { colors, radius, spacing, typography } from '../theme/theme';
+import { radius, spacing } from '../theme/theme';
 
 export default function AppointmentsScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const { appointments } = useAppointments();
+  const { colors, typography } = useTheme();
+  const styles = createStyles(colors, typography);
+  const { appointments, refreshing, retry } = useAppointments();
   const [statusFilter, setStatusFilter] = useState('all');
   const [search, setSearch] = useState('');
   const patientAppointments = appointments.filter((item) => item.patientId === user?.id);
@@ -34,7 +37,7 @@ export default function AppointmentsScreen() {
 
   useEffect(() => {
     if (!user) router.replace('/login');
-    else if (user.role !== 'patient') router.replace('/doctor');
+    else if (user.role !== 'patient') router.replace(user.role === 'admin' ? '/admin' : '/doctor');
   }, [router, user?.role]);
 
   if (user?.role !== 'patient') return null;
@@ -50,6 +53,14 @@ export default function AppointmentsScreen() {
         keyExtractor={(item) => item.id}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={retry}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
         contentContainerStyle={[styles.content, filteredAppointments.length === 0 && styles.emptyContent]}
         ListHeaderComponent={
           <View style={styles.header}>
@@ -156,7 +167,8 @@ export default function AppointmentsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors, typography) {
+  return StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
   keyboardAvoidingView: { flex: 1 },
   content: { padding: spacing.lg, paddingBottom: spacing.xl },
@@ -190,4 +202,5 @@ const styles = StyleSheet.create({
   serviceText: { flex: 1, marginLeft: spacing.md },
   serviceName: { ...typography.body, fontWeight: '600' },
   serviceDuration: { ...typography.caption, marginTop: spacing.xs },
-});
+  });
+}

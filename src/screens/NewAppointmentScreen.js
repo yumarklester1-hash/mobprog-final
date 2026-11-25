@@ -17,13 +17,16 @@ import AppButton from '../components/AppButton';
 import InputField from '../components/InputField';
 import { useAuth } from '../context/AuthContext';
 import { useAppointments } from '../context/AppointmentContext';
+import { useTheme } from '../context/ThemeContext';
 import { dentalServices } from '../data/dentalServices';
-import { colors, spacing, typography } from '../theme/theme';
+import { spacing } from '../theme/theme';
 
 export default function NewAppointmentScreen() {
   const router = useRouter();
   const { user, doctors } = useAuth();
   const { appointments, addAppointment } = useAppointments();
+  const { colors, typography } = useTheme();
+  const styles = createStyles(colors, typography);
   const [doctorId, setDoctorId] = useState('');
   const [serviceId, setServiceId] = useState('');
   const [date, setDate] = useState(null);
@@ -39,7 +42,7 @@ export default function NewAppointmentScreen() {
 
   useEffect(() => {
     if (!user) router.replace('/login');
-    else if (user.role !== 'patient') router.replace('/doctor');
+    else if (user.role !== 'patient') router.replace(user.role === 'admin' ? '/admin' : '/doctor');
   }, [router, user?.role]);
 
   const today = new Date();
@@ -364,7 +367,8 @@ export default function NewAppointmentScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors, typography) {
+  return StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
   keyboardAvoidingView: { flex: 1 },
   content: { padding: spacing.lg, paddingBottom: spacing.xl },
@@ -417,4 +421,5 @@ const styles = StyleSheet.create({
   timeSelectedText: { color: colors.primaryDark, fontWeight: '700' },
   error: { color: colors.danger, fontSize: 13, marginBottom: spacing.sm },
   button: { marginTop: spacing.sm },
-});
+  });
+}

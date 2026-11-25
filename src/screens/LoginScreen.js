@@ -14,12 +14,16 @@ import { useRouter } from 'expo-router';
 import BrandHeader from '../components/BrandHeader';
 import InputField from '../components/InputField';
 import AppButton from '../components/AppButton';
-import { colors, spacing, typography } from '../theme/theme';
+import ThemeModeToggle from '../components/ThemeModeToggle';
+import { useTheme } from '../context/ThemeContext';
+import { spacing } from '../theme/theme';
 import { useAuth } from '../context/AuthContext';
 
 export default function LoginScreen() {
   const router = useRouter();
   const { login } = useAuth();
+  const { colors, typography } = useTheme();
+  const styles = createStyles(colors, typography);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState({});
@@ -43,7 +47,7 @@ export default function LoginScreen() {
         setErrors({ credentials: 'Email or password is incorrect' });
         return;
       }
-      router.replace(user.role === 'doctor' ? '/doctor' : '/home');
+      router.replace(user.role === 'admin' ? '/admin' : user.role === 'doctor' ? '/doctor' : '/home');
     } catch (error) {
       setErrors({ credentials: error.message || 'Unable to sign in. Please try again.' });
     } finally {
@@ -65,6 +69,7 @@ export default function LoginScreen() {
             title="Welcome Back"
             subtitle="Sign in to manage your dental appointments"
           />
+          <ThemeModeToggle />
 
           <InputField
             label="Email"
@@ -116,7 +121,8 @@ export default function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors, typography) {
+  return StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.background,
@@ -157,4 +163,5 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: '700',
   },
-});
+  });
+}

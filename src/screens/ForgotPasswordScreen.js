@@ -5,12 +5,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import AppButton from '../components/AppButton';
 import InputField from '../components/InputField';
+import ThemeModeToggle from '../components/ThemeModeToggle';
 import { useAuth } from '../context/AuthContext';
-import { colors, spacing, typography } from '../theme/theme';
+import { useTheme } from '../context/ThemeContext';
+import { spacing } from '../theme/theme';
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
   const { requestPasswordReset } = useAuth();
+  const { colors, typography } = useTheme();
+  const styles = createStyles(colors, typography);
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
   const [sent, setSent] = useState(false);
@@ -52,6 +56,7 @@ export default function ForgotPasswordScreen() {
           >
             <Ionicons name="arrow-back" size={22} color={colors.secondary} />
           </TouchableOpacity>
+          <ThemeModeToggle />
 
           <View style={styles.icon}>
             <Ionicons name="mail-unread-outline" size={30} color={colors.primary} />
@@ -86,7 +91,8 @@ export default function ForgotPasswordScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors, typography) {
+  return StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   keyboardAvoidingView: { flex: 1 },
   scrollContent: { flexGrow: 1, paddingHorizontal: spacing.lg, paddingTop: spacing.xl, paddingBottom: spacing.xl },
@@ -97,4 +103,5 @@ const styles = StyleSheet.create({
   action: { marginTop: spacing.xl, alignSelf: 'flex-start' },
   error: { color: colors.danger, marginTop: spacing.sm },
   actionText: { ...typography.body, color: colors.primary, fontWeight: '700' },
-});
+  });
+}

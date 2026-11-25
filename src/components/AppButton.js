@@ -6,7 +6,8 @@ import {
   ActivityIndicator,
   View,
 } from 'react-native';
-import { colors, radius, typography, spacing } from '../theme/theme';
+import { radius, spacing } from '../theme/theme';
+import { useTheme } from '../context/ThemeContext';
 
 export default function AppButton({
   title,
@@ -17,6 +18,8 @@ export default function AppButton({
   disabled = false,
   style,
 }) {
+  const { colors, typography } = useTheme();
+  const styles = createStyles(colors, typography);
   const isDisabled = disabled || loading;
 
   return (
@@ -56,7 +59,8 @@ export default function AppButton({
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors, typography) {
+  return StyleSheet.create({
   base: {
     height: 52,
     borderRadius: radius.md,
@@ -102,4 +106,5 @@ const styles = StyleSheet.create({
   labelText: {
     color: colors.primary,
   },
-});
+  });
+}

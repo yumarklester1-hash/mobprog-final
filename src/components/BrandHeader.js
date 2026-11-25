@@ -1,9 +1,12 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
-import { colors, radius, spacing, typography } from '../theme/theme';
+import { radius, spacing } from '../theme/theme';
+import { useTheme } from '../context/ThemeContext';
 
 export default function BrandHeader({ title, subtitle }) {
+  const { colors, typography } = useTheme();
+  const styles = createStyles(colors, typography);
   return (
     <View style={styles.wrapper}>
       <View style={styles.logoCircle}>
@@ -15,7 +18,8 @@ export default function BrandHeader({ title, subtitle }) {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors, typography) {
+  return StyleSheet.create({
   wrapper: {
     alignItems: 'center',
     marginBottom: spacing.xl,
@@ -38,4 +42,5 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     textAlign: 'center',
   },
-});
+  });
+}

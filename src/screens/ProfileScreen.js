@@ -7,12 +7,16 @@ import { useRouter } from 'expo-router';
 import AppButton from '../components/AppButton';
 import InputField from '../components/InputField';
 import LogoutButton from '../components/LogoutButton';
+import ThemeModeToggle from '../components/ThemeModeToggle';
 import { useAuth } from '../context/AuthContext';
-import { colors, radius, spacing, typography } from '../theme/theme';
+import { useTheme } from '../context/ThemeContext';
+import { radius, spacing } from '../theme/theme';
 
 export default function ProfileScreen() {
   const router = useRouter();
   const { user, updateUser, uploadProfilePhoto, updatePassword } = useAuth();
+  const { colors, typography } = useTheme();
+  const styles = createStyles(colors, typography);
   const currentUser = user || {};
   const [photoUri, setPhotoUri] = useState(currentUser.profilePhoto || null);
   const [form, setForm] = useState({
@@ -152,7 +156,11 @@ export default function ProfileScreen() {
           <View>
             <Text style={styles.title}>My profile</Text>
             <Text style={styles.subtitle}>
-              {user?.role === 'doctor' ? 'Doctor account' : 'Patient account'} · Manage your details.
+              {user?.role === 'admin'
+                ? 'Administrator account'
+                : user?.role === 'doctor'
+                  ? 'Doctor account'
+                  : 'Patient account'} · Manage your details.
             </Text>
           </View>
         </View>
@@ -174,6 +182,7 @@ export default function ProfileScreen() {
           <AppButton title="Update password" variant="outline" onPress={savePassword} />
         </View>
         {message ? <Text style={styles.message}>{message}</Text> : null}
+        <ThemeModeToggle />
         <LogoutButton style={{ marginTop: spacing.md }} />
         </ScrollView>
       </KeyboardAvoidingView>
@@ -181,7 +190,8 @@ export default function ProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors, typography) {
+  return StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
   keyboardAvoidingView: { flex: 1 },
   content: { padding: spacing.lg, paddingBottom: spacing.xl },
@@ -198,4 +208,5 @@ const styles = StyleSheet.create({
   card: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.md },
   sectionTitle: { ...typography.h2, marginBottom: spacing.md },
   message: { ...typography.caption, color: colors.primaryDark, textAlign: 'center', marginTop: spacing.xs },
-});
+  });
+}

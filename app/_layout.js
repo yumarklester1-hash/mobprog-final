@@ -2,15 +2,18 @@ import { Stack } from 'expo-router';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { AuthProvider, useAuth } from '../src/context/AuthContext';
 import { AppointmentProvider, useAppointments } from '../src/context/AppointmentContext';
-import { colors, spacing, typography } from '../src/theme/theme';
+import { ThemeProvider, useTheme } from '../src/context/ThemeContext';
+import { spacing } from '../src/theme/theme';
 
 export default function RootLayout() {
   return (
-    <AuthProvider>
-      <AppointmentProvider>
-        <AppNavigator />
-      </AppointmentProvider>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <AppointmentProvider>
+          <AppNavigator />
+        </AppointmentProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 
@@ -21,8 +24,10 @@ function AppNavigator() {
     error: appointmentsError,
     retry: retryAppointments,
   } = useAppointments();
-  const retry = () => Promise.all([auth.retry(), retryAppointments()]);
-  const error = auth.error || appointmentsError;
+  const theme = useTheme();
+  const styles = createStyles(theme.colors, theme.typography);
+  const retry = () => Promise.all([auth.retry(), retryAppointments(), theme.retry()]);
+  const error = auth.error || appointmentsError || theme.error;
 
   if (error) {
     return (
@@ -35,10 +40,10 @@ function AppNavigator() {
     );
   }
 
-  if (!auth.ready || !appointmentsReady) {
+  if (!auth.ready || !appointmentsReady || !theme.ready) {
     return (
-      <View style={styles.startup}>
-        <ActivityIndicator size="large" color={colors.primary} />
+      <View style={[styles.startup, { backgroundColor: theme.colors.background }]}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
       </View>
     );
   }
@@ -55,6 +60,7 @@ function AppNavigator() {
       <Stack.Screen name="reset-password" options={{ title: 'Choose a new password' }} />
       <Stack.Screen name="home" options={{ title: 'Patient home' }} />
       <Stack.Screen name="doctor" options={{ title: 'Doctor dashboard' }} />
+      <Stack.Screen name="admin" options={{ title: 'Admin dashboard' }} />
       <Stack.Screen name="profile" options={{ title: 'Profile' }} />
       <Stack.Screen name="appointments" options={{ title: 'Appointments' }} />
       <Stack.Screen name="appointment-new" options={{ title: 'New appointment' }} />
@@ -64,8 +70,10 @@ function AppNavigator() {
   );
 }
 
-const styles = StyleSheet.create({
-  startup: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: spacing.lg, backgroundColor: colors.background },
-  error: { ...typography.body, color: colors.danger, textAlign: 'center', marginBottom: spacing.md },
-  retry: { ...typography.body, color: colors.primary, fontWeight: '700' },
-});
+function createStyles(colors, typography) {
+  return StyleSheet.create({
+    startup: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: spacing.lg, backgroundColor: colors.background },
+    error: { ...typography.body, color: colors.danger, textAlign: 'center', marginBottom: spacing.md },
+    retry: { ...typography.body, color: colors.primary, fontWeight: '700' },
+  });
+}

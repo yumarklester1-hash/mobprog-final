@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { View, TextInput, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, radius, spacing, typography } from '../theme/theme';
+import { radius, spacing } from '../theme/theme';
+import { useTheme } from '../context/ThemeContext';
 
 export default function InputField({
   label,
@@ -13,6 +14,8 @@ export default function InputField({
 }) {
   const [secure, setSecure] = useState(isPassword);
   const [focused, setFocused] = useState(false);
+  const { colors, typography } = useTheme();
+  const styles = createStyles(colors, typography);
 
   return (
     <View style={[styles.wrapper, style]}>
@@ -59,7 +62,8 @@ export default function InputField({
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors, typography) {
+  return StyleSheet.create({
   wrapper: {
     marginBottom: spacing.md,
   },
@@ -99,4 +103,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: spacing.xs,
   },
-});
+  });
+}

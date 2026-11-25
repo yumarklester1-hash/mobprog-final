@@ -7,14 +7,17 @@ import AppButton from '../components/AppButton';
 import AppointmentStatusBadge from '../components/AppointmentStatusBadge';
 import { useAuth } from '../context/AuthContext';
 import { useAppointments } from '../context/AppointmentContext';
+import { useTheme } from '../context/ThemeContext';
 import { dentalServices } from '../data/dentalServices';
-import { colors, radius, spacing, typography } from '../theme/theme';
+import { radius, spacing } from '../theme/theme';
 
 export default function AppointmentDetailsScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
   const { user, users } = useAuth();
   const { appointments, updateAppointment } = useAppointments();
+  const { colors, typography } = useTheme();
+  const styles = createStyles(colors, typography);
   const [updating, setUpdating] = useState(false);
   const appointmentId = Array.isArray(id) ? id[0] : id;
   const appointment = appointments.find(
@@ -22,11 +25,17 @@ export default function AppointmentDetailsScreen() {
       item.id === appointmentId &&
       (user?.role === 'doctor'
         ? item.doctorId === user.id
-        : item.patientId === user?.id),
+        : user?.role === 'admin'
+          ? true
+          : item.patientId === user?.id),
   );
   const patient = users.find((item) => item.id === appointment?.patientId);
   const patientProfilePhoto = patient?.profilePhoto || appointment?.patientProfilePhoto;
-  const appointmentsRoute = user?.role === 'doctor' ? '/doctor' : '/appointments';
+  const appointmentsRoute = user?.role === 'admin'
+    ? '/admin'
+    : user?.role === 'doctor'
+      ? '/doctor'
+      : '/appointments';
   const service = appointment && dentalServices.find((item) => item.id === appointment.serviceId);
 
   useEffect(() => {
@@ -80,7 +89,9 @@ export default function AppointmentDetailsScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={22} color={colors.secondary} />
-          <Text style={styles.backText}>{user?.role === 'doctor' ? 'Dashboard' : 'Appointments'}</Text>
+          <Text style={styles.backText}>
+            {user?.role === 'admin' ? 'Clinic dashboard' : user?.role === 'doctor' ? 'Dashboard' : 'Appointments'}
+          </Text>
         </TouchableOpacity>
         <View style={styles.heroIcon}>
           <Ionicons name="calendar" size={34} color={colors.white} />
@@ -92,7 +103,7 @@ export default function AppointmentDetailsScreen() {
           {service ? <DetailRow icon="time-outline" label="Estimated duration" value={service.duration} /> : null}
           <DetailRow icon="calendar-outline" label="Date" value={appointment.date} />
           <DetailRow icon="time-outline" label="Time" value={appointment.time} />
-          {user?.role === 'doctor' ? (
+          {user?.role === 'doctor' || user?.role === 'admin' ? (
             <>
               <View style={styles.patientProfile}>
                 <View style={styles.patientAvatar}>
@@ -111,13 +122,16 @@ export default function AppointmentDetailsScreen() {
               {patient?.phone || appointment.patientPhone ? (
                 <DetailRow icon="call-outline" label="Patient phone" value={patient?.phone || appointment.patientPhone} />
               ) : null}
+              {user?.role === 'admin' ? (
+                <DetailRow icon="person-outline" label="Dentist" value={appointment.doctorName} />
+              ) : null}
             </>
           ) : (
             <DetailRow icon="person-outline" label="Dentist" value={appointment.doctorName} />
           )}
           {appointment.notes ? <DetailRow icon="chatbox-ellipses-outline" label="Notes" value={appointment.notes} /> : null}
         </View>
-        {user?.role === 'doctor' && appointment.status === 'pending' ? (
+        {(user?.role === 'doctor' || user?.role === 'admin') && appointment.status === 'pending' ? (
           <AppButton
             title="Confirm appointment"
             loading={updating}
@@ -125,7 +139,7 @@ export default function AppointmentDetailsScreen() {
             style={styles.button}
           />
         ) : null}
-        {user?.role === 'doctor' && appointment.status === 'confirmed' ? (
+        {(user?.role === 'doctor' || user?.role === 'admin') && appointment.status === 'confirmed' ? (
           <AppButton
             title="Mark as completed"
             loading={updating}
@@ -149,6 +163,8 @@ export default function AppointmentDetailsScreen() {
 }
 
 function DetailRow({ icon, label, value }) {
+  const { colors, typography } = useTheme();
+  const styles = createStyles(colors, typography);
   return (
     <View style={styles.detailRow}>
       <Ionicons name={icon} size={21} color={colors.primary} />
@@ -160,7 +176,8 @@ function DetailRow({ icon, label, value }) {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors, typography) {
+  return StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
   content: { flexGrow: 1, padding: spacing.lg, paddingBottom: spacing.xl },
   backButton: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xl },
@@ -180,4 +197,5 @@ const styles = StyleSheet.create({
   detailValue: { ...typography.body, fontWeight: '600', marginTop: 2 },
   button: { marginTop: spacing.xl },
   missingState: { flex: 1, justifyContent: 'center', padding: spacing.lg },
-});
+  });
+}

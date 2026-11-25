@@ -4,6 +4,7 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -16,16 +17,20 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import AppointmentStatusBadge from '../components/AppointmentStatusBadge';
 import LogoutButton from '../components/LogoutButton';
+import ThemeModeToggle from '../components/ThemeModeToggle';
 import { useAuth } from '../context/AuthContext';
 import { useAppointments } from '../context/AppointmentContext';
-import { colors, radius, spacing, typography } from '../theme/theme';
+import { useTheme } from '../context/ThemeContext';
+import { radius, spacing } from '../theme/theme';
 
 const filters = ['all', 'pending', 'confirmed', 'completed', 'cancelled'];
 
 export default function DoctorDashboardScreen() {
   const router = useRouter();
   const { user, users } = useAuth();
-  const { appointments } = useAppointments();
+  const { appointments, refreshing, retry } = useAppointments();
+  const { colors, typography } = useTheme();
+  const styles = createStyles(colors, typography);
   const [statusFilter, setStatusFilter] = useState('all');
   const [search, setSearch] = useState('');
   const doctorAppointments = appointments
@@ -76,6 +81,14 @@ export default function DoctorDashboardScreen() {
         keyExtractor={(item) => item.id}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={retry}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
         contentContainerStyle={[styles.content, visibleAppointments.length === 0 && styles.emptyContent]}
         ListHeaderComponent={
           <View>
@@ -172,7 +185,12 @@ export default function DoctorDashboardScreen() {
             </Text>
           </View>
         }
-        ListFooterComponent={<LogoutButton style={styles.logoutButton} />}
+        ListFooterComponent={(
+          <View>
+            <ThemeModeToggle />
+            <LogoutButton style={styles.logoutButton} />
+          </View>
+        )}
         />
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -180,6 +198,8 @@ export default function DoctorDashboardScreen() {
 }
 
 function SummaryCard({ label, value, icon }) {
+  const { colors, typography } = useTheme();
+  const styles = createStyles(colors, typography);
   return (
     <View style={styles.summaryCard}>
       <Ionicons name={icon} size={19} color={colors.primary} />
@@ -189,7 +209,8 @@ function SummaryCard({ label, value, icon }) {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors, typography) {
+  return StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
   keyboardAvoidingView: { flex: 1 },
   content: { padding: spacing.lg, paddingBottom: spacing.xl },
@@ -224,4 +245,5 @@ const styles = StyleSheet.create({
   emptyTitle: { ...typography.h2, marginTop: spacing.md, textAlign: 'center' },
   emptyText: { ...typography.body, color: colors.textMuted, textAlign: 'center', marginTop: spacing.sm },
   logoutButton: { marginTop: spacing.md },
-});
+  });
+}

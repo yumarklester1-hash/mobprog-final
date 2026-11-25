@@ -5,10 +5,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import AppButton from '../components/AppButton';
 import { dentalServices } from '../data/dentalServices';
-import { colors, radius, spacing, typography } from '../theme/theme';
+import { useTheme } from '../context/ThemeContext';
+import { radius, spacing } from '../theme/theme';
 
 export default function ServiceDetailsScreen() {
   const router = useRouter();
+  const { colors, typography } = useTheme();
+  const styles = createStyles(colors, typography);
   const { id } = useLocalSearchParams();
   const serviceId = Array.isArray(id) ? id[0] : id;
   const service = dentalServices.find((item) => item.id === serviceId);
@@ -71,7 +74,8 @@ export default function ServiceDetailsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors, typography) {
+  return StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
   content: { padding: spacing.lg },
   backButton: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xl },
@@ -86,4 +90,5 @@ const styles = StyleSheet.create({
   detailValue: { ...typography.body, fontWeight: '600', marginTop: 2 },
   button: { marginTop: spacing.xl },
   missingState: { flex: 1, justifyContent: 'center', padding: spacing.lg },
-});
+  });
+}

@@ -124,6 +124,16 @@ export function AuthProvider({ children }) {
     }
   }, [loadProfiles]);
 
+  const refreshProfiles = useCallback(async () => {
+    if (!user) return;
+    try {
+      await loadProfiles(user);
+    } catch (loadError) {
+      setError(loadError.message || 'Unable to refresh clinic accounts.');
+      throw loadError;
+    }
+  }, [loadProfiles, user]);
+
   useEffect(() => {
     load();
     if (!supabase) return undefined;
@@ -208,6 +218,59 @@ export function AuthProvider({ children }) {
     return nextUser;
   };
 
+  const updateDoctorProfile = async (doctorId, updates) => {
+    if (user?.role !== 'admin') throw new Error('Only administrators can manage doctor profiles.');
+    if (!supabase) throw new Error(supabaseConfigError);
+    const { error: rpcError } = await supabase.rpc('admin_update_doctor_profile', {
+      target_id: doctorId,
+      target_role: updates.role,
+      target_specialty: updates.specialty?.trim(),
+    });
+    if (rpcError) throw rpcError;
+    const { data, error: updateError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', doctorId)
+      .single();
+    if (updateError) throw updateError;
+
+    const updatedProfile = mapProfile(data);
+    const photo = users.find((item) => item.id === doctorId)?.profilePhoto || null;
+    updatedProfile.profilePhoto = photo;
+    setUsers((current) => current.map((item) => (
+      item.id === doctorId ? updatedProfile : item
+    )));
+    return updatedProfile;
+  };
+
+  const uploadUserProfilePhoto = async (profileId, uri, base64, mimeType) => {
+    if (user?.role !== 'admin') throw new Error('Only administrators can manage doctor photos.');
+    if (!supabase) throw new Error(supabaseConfigError);
+    if (!base64) throw new Error('Unable to read the selected photo. Please choose it again.');
+
+    const path = `${profileId}/avatar`;
+    const { error: uploadError } = await supabase.storage
+      .from(PROFILE_PHOTO_BUCKET)
+      .upload(path, decode(base64), {
+        cacheControl: '3600',
+        contentType: getPhotoContentType(uri, mimeType),
+        upsert: true,
+      });
+    if (uploadError) throw uploadError;
+
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update({ profile_photo_path: path })
+      .eq('id', profileId);
+    if (profileError) throw profileError;
+
+    const profilePhoto = await getProfilePhotoUrl(path);
+    setUsers((current) => current.map((item) => (
+      item.id === profileId ? { ...item, profilePhoto, profilePhotoPath: path } : item
+    )));
+    return profilePhoto;
+  };
+
   const updatePassword = async (currentPassword, newPassword) => {
     if (!user || !supabase) throw new Error('You must be signed in to update your password.');
     const { error: verifyError } = await supabase.auth.signInWithPassword({
@@ -273,10 +336,13 @@ export function AuthProvider({ children }) {
     ready,
     error,
     retry: load,
+    refreshProfiles,
     login,
     register,
     updateUser,
+    updateDoctorProfile,
     uploadProfilePhoto,
+    uploadUserProfilePhoto,
     updatePassword,
     requestPasswordReset,
     logout,

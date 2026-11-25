@@ -38,15 +38,17 @@ export function AppointmentProvider({ children }) {
   const [appointments, setAppointments] = useState([]);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
   const loadRequest = useRef(0);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async ({ refresh = false } = {}) => {
     const requestId = ++loadRequest.current;
+    if (refresh) setRefreshing(true);
     setError('');
-    setAppointments([]);
     try {
       if (!authReady) return;
       if (!user) {
+        setAppointments([]);
         return;
       }
       if (supabaseConfigError) throw new Error(supabaseConfigError);
@@ -63,12 +65,28 @@ export function AppointmentProvider({ children }) {
       }
     } finally {
       if (authReady && requestId === loadRequest.current) setReady(true);
+      if (requestId === loadRequest.current) setRefreshing(false);
     }
   }, [authReady, user?.id]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    if (!authReady || !user || !supabase) return undefined;
+    const channel = supabase
+      .channel(`appointments-${user.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'appointments' },
+        () => load(),
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [authReady, user?.id, load]);
 
   const addAppointment = async (details) => {
     if (!supabase) throw new Error(supabaseConfigError);
@@ -98,7 +116,10 @@ export function AppointmentProvider({ children }) {
       throw insertError;
     }
     const appointment = mapAppointment(data);
-    setAppointments((current) => [appointment, ...current]);
+    setAppointments((current) => [
+      appointment,
+      ...current.filter((item) => item.id !== appointment.id),
+    ]);
     return appointment;
   };
 
@@ -128,11 +149,12 @@ export function AppointmentProvider({ children }) {
   const value = useMemo(() => ({
     appointments,
     ready,
+    refreshing,
     error,
-    retry: load,
+    retry: () => load({ refresh: true }),
     addAppointment,
     updateAppointment,
-  }), [appointments, ready, error, load]);
+  }), [appointments, ready, refreshing, error, load]);
 
   return (
     <AppointmentContext.Provider value={value}>

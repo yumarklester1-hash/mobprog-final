@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { colors, radius, spacing } from '../theme/theme';
+import { radius, spacing } from '../theme/theme';
+import { useTheme } from '../context/ThemeContext';
 
 const statusLabels = {
   pending: 'Pending',
@@ -9,15 +10,16 @@ const statusLabels = {
   cancelled: 'Cancelled',
 };
 
-const statusStyles = {
-  pending: { backgroundColor: '#FFF7E6', color: '#A16207' },
-  confirmed: { backgroundColor: colors.primaryLight, color: colors.primaryDark },
-  completed: { backgroundColor: '#ECFDF3', color: '#16794A' },
-  cancelled: { backgroundColor: '#FEF2F2', color: colors.danger },
-};
-
 export default function AppointmentStatusBadge({ status }) {
+  const { colors } = useTheme();
+  const statusStyles = {
+    pending: { backgroundColor: colors.primaryLight, color: colors.primaryDark },
+    confirmed: { backgroundColor: colors.primaryLight, color: colors.primaryDark },
+    completed: { backgroundColor: colors.surface, color: colors.primary },
+    cancelled: { backgroundColor: colors.surface, color: colors.danger },
+  };
   const tone = statusStyles[status] || statusStyles.pending;
+  const styles = createStyles();
   return (
     <View style={[styles.badge, { backgroundColor: tone.backgroundColor }]}>
       <Text style={[styles.label, { color: tone.color }]}>
@@ -27,7 +29,9 @@ export default function AppointmentStatusBadge({ status }) {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles() {
+  return StyleSheet.create({
   badge: { alignSelf: 'flex-start', borderRadius: radius.pill, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
   label: { fontSize: 12, fontWeight: '700' },
-});
+  });
+}

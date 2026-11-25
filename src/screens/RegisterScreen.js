@@ -14,13 +14,17 @@ import { Ionicons } from '@expo/vector-icons';
 import BrandHeader from '../components/BrandHeader';
 import InputField from '../components/InputField';
 import AppButton from '../components/AppButton';
-import { colors, radius, spacing, typography } from '../theme/theme';
+import ThemeModeToggle from '../components/ThemeModeToggle';
+import { useTheme } from '../context/ThemeContext';
+import { radius, spacing } from '../theme/theme';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../context/AuthContext';
 
 export default function RegisterScreen() {
   const router = useRouter();
   const { register } = useAuth();
+  const { colors, typography } = useTheme();
+  const styles = createStyles(colors, typography);
   const [form, setForm] = useState({
     firstName: '',
     lastName: '',
@@ -97,6 +101,7 @@ export default function RegisterScreen() {
             title="Create Account"
             subtitle="Book and manage your dental visits with ease"
           />
+          <ThemeModeToggle />
 
           <InputField
             label="First Name"
@@ -192,7 +197,8 @@ export default function RegisterScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors, typography) {
+  return StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.background,
@@ -252,4 +258,5 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: '700',
   },
-});
+  });
+}

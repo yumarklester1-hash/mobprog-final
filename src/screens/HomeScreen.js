@@ -1,18 +1,22 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Image, ScrollView, View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { Image, RefreshControl, ScrollView, View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import AppButton from '../components/AppButton';
 import LogoutButton from '../components/LogoutButton';
+import ThemeModeToggle from '../components/ThemeModeToggle';
 import { useAppointments } from '../context/AppointmentContext';
 import { useAuth } from '../context/AuthContext';
-import { colors, radius, spacing, typography } from '../theme/theme';
+import { useTheme } from '../context/ThemeContext';
+import { radius, spacing } from '../theme/theme';
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { appointments } = useAppointments();
+  const { appointments, refreshing, retry } = useAppointments();
   const { user } = useAuth();
+  const { colors, typography } = useTheme();
+  const styles = createStyles(colors, typography);
   const patientAppointments = appointments.filter((item) => item.patientId === user?.id);
   const [profilePhoto, setProfilePhoto] = useState(user?.profilePhoto || null);
   const firstName = user?.firstName || user?.name?.split(' ')[0];
@@ -25,6 +29,7 @@ export default function HomeScreen() {
 
   useEffect(() => {
     if (!user) router.replace('/login');
+    else if (user.role === 'admin') router.replace('/admin');
     else if (user.role === 'doctor') router.replace('/doctor');
   }, [router, user]);
 
@@ -34,7 +39,17 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={retry}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
+      >
         <View style={styles.header}>
           <View>
             <Text style={styles.greeting}>{firstName ? `Welcome back, ${firstName}` : 'Welcome back'}</Text>
@@ -85,13 +100,15 @@ export default function HomeScreen() {
           onPress={() => router.push('/appointments')}
           style={styles.button}
         />
+        <ThemeModeToggle />
         <LogoutButton style={styles.logout} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors, typography) {
+  return StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -171,4 +188,5 @@ const styles = StyleSheet.create({
   logout: {
     marginTop: spacing.xl,
   },
-});
+  });
+}

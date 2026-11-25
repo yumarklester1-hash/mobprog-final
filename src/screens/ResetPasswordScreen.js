@@ -4,8 +4,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import AppButton from '../components/AppButton';
 import InputField from '../components/InputField';
+import ThemeModeToggle from '../components/ThemeModeToggle';
+import { useTheme } from '../context/ThemeContext';
 import { supabase } from '../lib/supabase';
-import { colors, spacing, typography } from '../theme/theme';
+import { spacing } from '../theme/theme';
 
 function getRecoveryTokens(url) {
   const fragment = url.includes('#') ? url.split('#')[1] : '';
@@ -19,6 +21,8 @@ function getRecoveryTokens(url) {
 
 export default function ResetPasswordScreen() {
   const router = useRouter();
+  const { colors, typography } = useTheme();
+  const styles = createStyles(colors, typography);
   const handledLink = useRef(false);
   const [ready, setReady] = useState(false);
   const [password, setPassword] = useState('');
@@ -93,6 +97,7 @@ export default function ResetPasswordScreen() {
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
         >
+          <ThemeModeToggle />
           <Text style={styles.title}>Choose a new password</Text>
           <Text style={styles.subtitle}>Enter your new password to secure your account.</Text>
           {ready ? (
@@ -123,11 +128,13 @@ export default function ResetPasswordScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors, typography) {
+  return StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   keyboardAvoidingView: { flex: 1 },
   content: { flexGrow: 1, justifyContent: 'center', padding: spacing.lg },
   title: { ...typography.h1, marginBottom: spacing.xs },
   subtitle: { ...typography.body, color: colors.textMuted, marginBottom: spacing.lg },
   error: { ...typography.caption, color: colors.danger, marginTop: spacing.sm },
-});
+  });
+}
